@@ -46,6 +46,10 @@ export function checkLessonCompletion(lessonId: string): {
   return { listen: listenOk, speak: speakOk, write: writeOk, overall };
 }
 
+export function isLessonComplete(lessonId: string): boolean {
+  return checkLessonCompletion(lessonId).overall;
+}
+
 export function unlockNextLessonAfterComplete(lessonId: string): void {
   const result = checkLessonCompletion(lessonId);
   if (result.overall) {

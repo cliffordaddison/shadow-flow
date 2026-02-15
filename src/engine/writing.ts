@@ -12,6 +12,7 @@ import { updateWordStats, recomputeWordMasteryForSentence } from '@/store/wordSt
 import { updateSentenceMastery } from '@/store/sentenceMastery';
 import { updateStreak } from './streaks';
 import { unlockNextLessonAfterComplete } from './progression';
+import { useStore } from '@/store/useStore';
 
 export function useWritingSession(lessonId?: string) {
   const [current, setCurrent] = useState<{ sentence: Sentence; state: ReviewState } | null>(null);
@@ -78,6 +79,7 @@ export function useWritingSession(lessonId?: string) {
     const lessonId = current.sentence.lessonId;
     if (grade === 0) againQueue.current.push(sentenceId);
     updateReviewState(sentenceId, 'write', grade);
+    useStore.getState().incrementSentenceVersion();
     updateWordStats(sentenceId, 'write');
     updateSentenceMastery(sentenceId);
     recomputeWordMasteryForSentence(sentenceId);

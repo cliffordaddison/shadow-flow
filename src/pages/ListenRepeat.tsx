@@ -30,7 +30,7 @@ export function ListenRepeat() {
   const courseName = course?.name ?? '—';
   const lessonName = session.lesson?.name ?? '—';
   const progressValue = session.totalSentences > 0
-    ? `${session.currentIndex + 1} / ${session.totalSentences}`
+    ? `${session.currentIndex} / ${session.totalSentences}`
     : '—';
   const progressPct = session.totalSentences > 0 ? (session.currentIndex / session.totalSentences) * 100 : 0;
   const playCountDisplay = Math.min(session.repeatIndex + 1, session.repeatCount);
@@ -52,34 +52,34 @@ export function ListenRepeat() {
         metrics={[]}
       />
       <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col items-center justify-center max-w-5xl mx-auto w-full overflow-y-auto">
-        <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-auto min-h-[400px] sm:min-h-[500px]">
-          <div className="flex-1 p-4 sm:p-10 flex flex-col items-center justify-center relative min-h-0 overflow-y-auto">
-            <div className="absolute top-6 left-6 right-6 flex items-center justify-between gap-4">
-              <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-full uppercase tracking-wider border border-indigo-100 dark:border-indigo-800/50 shrink-0">
-                Play Count: {playCountDisplay} / {session.repeatCount}
+        <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-x-hidden overflow-y-hidden flex flex-col h-auto min-h-[400px] sm:min-h-[500px]">
+          <div className="flex-1 p-4 sm:p-10 flex flex-col items-center justify-center relative min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
+            <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 flex flex-wrap items-center justify-between gap-2 sm:gap-4 min-w-0 overflow-hidden">
+              <span className="px-2 sm:px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wider border border-indigo-100 dark:border-indigo-800/50 shrink-0">
+                Play: {playCountDisplay}/{session.repeatCount}
               </span>
-              <div className="flex items-center gap-3 shrink-0 min-w-[72px] justify-end">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
                 <button
                   type="button"
                   onClick={() => session.stopPlayback()}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold border transition-colors shrink-0 ${
                     session.isPlaying
                       ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50'
                       : 'invisible pointer-events-none bg-transparent border-transparent'
                   }`}
                   aria-hidden={!session.isPlaying}
                 >
-                  <span className="material-symbols-outlined text-base">stop</span>
-                  <span>Stop</span>
+                  <span className="material-symbols-outlined text-sm sm:text-base">stop</span>
+                  <span className="hidden sm:inline">Stop</span>
                 </button>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 min-w-0">
                   <input
                     type="checkbox"
                     checked={session.autoAdvance}
                     onChange={(e) => session.setAutoAdvance(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary"
+                    className="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary shrink-0"
                   />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Auto-advance</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 truncate">Auto-advance</span>
                 </label>
               </div>
             </div>

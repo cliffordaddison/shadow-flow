@@ -30,9 +30,9 @@ function MetricChip({
 
 export function LessonHeader({ courseName, lessonName, progressLabel, progressValue, metrics }: Readonly<LessonHeaderProps>) {
   return (
-    <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
+    <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 min-h-[5.5rem] md:min-h-[5rem]">
       {/* MOBILE ONLY: Compact, distinct blocks, no truncation — Course | Lesson | Progress + metrics */}
-      <div className="md:hidden flex flex-col gap-2 py-2.5 px-3">
+      <div className="md:hidden flex flex-col gap-2 py-2.5 px-3 min-h-[5.5rem]">
         <div className="flex items-stretch justify-center gap-2">
           <div className="flex-1 min-w-0 rounded-lg bg-slate-50/60 dark:bg-slate-800/50 px-2 py-1.5 text-center">
             <span className="block text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Course</span>
@@ -57,7 +57,7 @@ export function LessonHeader({ courseName, lessonName, progressLabel, progressVa
       </div>
 
       {/* DESKTOP: Original inline layout — Course | Lesson | Progress + metrics on right */}
-      <div className="hidden md:flex flex-wrap items-center justify-between gap-4 py-4 px-6">
+      <div className="hidden md:flex flex-wrap items-center justify-between gap-4 py-4 px-6 min-h-[5rem]">
         <div className="flex items-center gap-4">
           <div>
             <span className="block text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Course</span>

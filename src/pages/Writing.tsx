@@ -6,7 +6,7 @@ import { getProgressSnapshot } from '@/engine/metrics';
 import { getReviewState } from '@/store/reviewStates';
 import { getSentencesByLessonId, getAllSentences } from '@/store/sentences';
 import { useStore } from '@/store/useStore';
-import { getCourse } from '@/store/courses';
+import { getCourse, getLesson } from '@/store/courses';
 
 export function Writing() {
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -17,14 +17,15 @@ export function Writing() {
   const course = currentCourseId ? getCourse(currentCourseId) : null;
   const totalSentences = getAllSentences().length;
 
+  const sentenceVersion = useStore((s) => s.sentenceVersion);
   const progressValue = useMemo(() => {
     if (!currentLessonId) return '—';
     const lessonSentences = getSentencesByLessonId(currentLessonId);
     const total = lessonSentences.length;
     if (total === 0) return '—';
     const completed = lessonSentences.filter((s) => getReviewState(s.id, 'write').repetitions > 0).length;
-    return `${completed} / ${total}`;
-  }, [currentLessonId]);
+    return `${Math.min(completed, total)} / ${total}`;
+  }, [currentLessonId, sentenceVersion]);
 
   const wordsMasteredValue = snapshot.uniqueWords > 0
     ? `${snapshot.wordsMastered} / ${snapshot.uniqueWords}`
@@ -46,10 +47,7 @@ export function Writing() {
   const WRITING_ALL_METRICS = [...WRITING_NAVBAR_METRICS, ...WRITING_PAGE_METRICS];
 
   const courseName = course?.name ?? '—';
-  const lessonName = session.current ? 'Writing' : '—';
-  const dailyGoal = 20;
-  const dailyDone = snapshot.wordsSeenToday;
-  const dailyPct = Math.min(100, (dailyDone / dailyGoal) * 100);
+  const lessonName = (currentLessonId ? getLesson(currentLessonId)?.name : null) ?? '—';
 
   useEffect(() => {
     if (session.checked && feedbackRef.current) {
@@ -73,11 +71,8 @@ export function Writing() {
         metrics={WRITING_PAGE_METRICS}
       />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-3 sm:p-6 md:p-12 max-w-5xl mx-auto w-full">
-        {session.current ? (
+        {currentLessonId && session.current ? (
           <div className="w-full max-w-2xl mb-4 sm:mb-8 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden relative">
-            <div className="h-1 w-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full bg-primary transition-all duration-500" style={{ width: `${dailyPct}%` }} />
-            </div>
             <div className="p-4 sm:p-6 md:p-8 lg:p-12 space-y-5 sm:space-y-8">
               <div className="space-y-2 sm:space-y-3">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em]">
@@ -111,9 +106,10 @@ export function Writing() {
                   <button
                     type="button"
                     onClick={() => session.skipSentence()}
+                    title="Mark as known and advance (I already know this)"
                     className="px-4 py-2.5 sm:py-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium transition-colors"
                   >
-                    Skip
+                    Skip (I know it)
                   </button>
                 </div>
               </div>
@@ -211,30 +207,17 @@ export function Writing() {
               </div>
             )}
           </div>
-        ) : (
+        ) : currentLessonId ? (
           <div className="text-center text-slate-500 dark:text-slate-400">
             <p>No sentences due for writing.</p>
             <p className="mt-2 text-sm">Complete Listen & Repeat and Speaking first.</p>
           </div>
-        )}
-      </div>
-
-      <div className="w-full border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-6 py-4 shrink-0">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="w-full md:w-auto">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Daily Goal
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="h-1.5 flex-1 min-w-[120px] max-w-xs bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${dailyPct}%` }} />
-              </div>
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                {dailyDone}/{dailyGoal}
-              </span>
-            </div>
+        ) : (
+          <div className="text-center text-slate-500 dark:text-slate-400">
+            <p>No lesson selected.</p>
+            <p className="mt-2 text-sm">Upload a course and select a lesson.</p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

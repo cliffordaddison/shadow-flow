@@ -9,10 +9,8 @@ interface SidebarProps {
   readonly title: string;
   /** Subtitle under title, e.g. "Dashboard" or "Fluency Level: A2" */
   readonly subtitle: string;
-  /** Show session goal block (Speaking) */
+  /** Show session goal block (Speaking & Writing, same style) */
   readonly showSessionGoal?: boolean;
-  /** Show daily goal in sidebar (Writing) */
-  readonly showDailyGoal?: boolean;
 }
 
 const NAV_ITEMS: { to: string; label: string; icon: string; filledIcon?: boolean }[] = [
@@ -22,22 +20,27 @@ const NAV_ITEMS: { to: string; label: string; icon: string; filledIcon?: boolean
   { to: '/upload', label: 'Upload File', icon: 'cloud_upload', filledIcon: true },
 ];
 
-const DAILY_GOAL = 20;
+const SESSION_GOAL_TOTAL = 50;
+
+const VARIANT_TO_PROGRESS_MODE: Record<SidebarVariant, 'listen' | 'speak' | 'write'> = {
+  listen: 'listen',
+  speaking: 'speak',
+  writing: 'write',
+  upload: 'listen',
+  settings: 'listen',
+};
 
 export function Sidebar({
   variant,
   title,
   subtitle,
   showSessionGoal = false,
-  showDailyGoal = false,
 }: Readonly<SidebarProps>) {
   const { pathname } = useLocation();
-  const snapshot = getProgressSnapshot();
+  const snapshot = getProgressSnapshot(VARIANT_TO_PROGRESS_MODE[variant]);
   const sessionDone = snapshot.wordsSeenToday;
-  const sessionTotal = 50;
+  const sessionTotal = SESSION_GOAL_TOTAL;
   const sessionPct = sessionTotal > 0 ? Math.min(100, (sessionDone / sessionTotal) * 100) : 0;
-  const dailyDone = snapshot.wordsSeenToday;
-  const dailyPct = DAILY_GOAL > 0 ? Math.min(100, (dailyDone / DAILY_GOAL) * 100) : 0;
 
   return (
     <aside className="w-14 sm:w-16 md:w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col z-10 relative transition-[width] duration-200">
@@ -123,20 +126,6 @@ export function Sidebar({
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${sessionPct}%` }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDailyGoal && (
-        <div className="hidden md:block p-4 border-t border-slate-200 dark:border-slate-800">
-          <div className="flex-1">
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              <span>Daily Goal</span>
-              <span>{dailyDone}/{DAILY_GOAL}</span>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-primary transition-all" style={{ width: `${dailyPct}%` }} />
             </div>
           </div>
         </div>

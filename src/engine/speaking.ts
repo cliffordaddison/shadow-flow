@@ -122,6 +122,7 @@ export function useSpeakingSession(lessonId?: string) {
       const lessonIdForUnlock = current.sentence.lessonId;
       if (grade === 0) againQueue.current.push(sentenceId);
       updateReviewState(sentenceId, 'speak', grade);
+      useStore.getState().incrementSentenceVersion();
       updateWordStats(sentenceId, 'speak');
       updateSentenceMastery(sentenceId);
       recomputeWordMasteryForSentence(sentenceId);
@@ -149,7 +150,7 @@ export function useSpeakingSession(lessonId?: string) {
       autoSubmitTimeoutRef.current = null;
       setAutoSubmitted(true);
       submitGrade(suggestedGrade);
-    }, 1500);
+    }, 5000);
     return () => {
       if (autoSubmitTimeoutRef.current) {
         clearTimeout(autoSubmitTimeoutRef.current);

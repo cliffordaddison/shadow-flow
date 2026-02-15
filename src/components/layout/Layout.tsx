@@ -11,12 +11,12 @@ function getCEFRSubtitle(): string {
 
 const SIDEBAR_HEADER = { title: 'French Learner' };
 
-const ROUTE_SIDEBAR: Record<string, { variant: SidebarVariant; title: string; subtitle: string; showSessionGoal?: boolean; showDailyGoal?: boolean }> = {
+const ROUTE_SIDEBAR: Record<string, { variant: SidebarVariant; title: string; subtitle: string; showSessionGoal?: boolean }> = {
   '/upload': { variant: 'listen', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle() },
   '/listen': { variant: 'listen', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle() },
   '/settings': { variant: 'settings', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle() },
   '/speaking': { variant: 'speaking', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle(), showSessionGoal: true },
-  '/writing': { variant: 'writing', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle(), showDailyGoal: true },
+  '/writing': { variant: 'writing', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle(), showSessionGoal: true },
 };
 
 function getSidebarConfig(pathname: string) {
@@ -39,7 +39,6 @@ export function Layout() {
         title={config.title}
         subtitle={getCEFRSubtitle()}
         showSessionGoal={config.showSessionGoal}
-        showDailyGoal={config.showDailyGoal}
       />
       <main className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-background-dark min-h-0 min-w-0">
         <Outlet />

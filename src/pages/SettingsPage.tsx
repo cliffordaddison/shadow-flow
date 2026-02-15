@@ -10,6 +10,7 @@ import { resetAllData, resetProgressOnly } from '@/store/reset';
 import { useStore } from '@/store/useStore';
 import { saveSettings } from '@/store/settings';
 import type { LearningSettings } from '@/types';
+import { LessonPicker } from '@/components/LessonPicker';
 
 export function SettingsPage() {
   const settings = useStore((s) => s.settings);
@@ -77,6 +78,20 @@ export function SettingsPage() {
         allMetrics={SETTINGS_NAVBAR_METRICS}
       />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-16 max-w-4xl mx-auto w-full space-y-10 sm:space-y-12">
+        <section>
+          <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">school</span>
+              {' '}
+              Current lesson
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Choose the lesson used for Listen &amp; Repeat, Speaking, and Writing.</p>
+          </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-6">
+            <LessonPicker />
+          </div>
+        </section>
+
         <section>
           <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">

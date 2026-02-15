@@ -39,10 +39,22 @@ export function useFrenchVoices(): SpeechSynthesisVoice[] {
   return voices;
 }
 
-/** First available fr-* voice for fallback when stored voice is missing or not French. */
+/** Prefer voices that often sound more natural on mobile (e.g. Google, enhanced). */
+function isLikelyNaturalVoice(v: SpeechSynthesisVoice): boolean {
+  const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+  return /google|enhanced|premium|natural|samsung|female|male|online/.test(n);
+}
+
+/** First available fr-* voice for fallback when stored voice is missing or not French. On mobile, prefer voices that typically sound less robotic. */
 export function getDefaultFrenchVoice(): SpeechSynthesisVoice | null {
   const list = getFrenchVoices();
-  return list.length > 0 ? list[0] : null;
+  if (list.length === 0) return null;
+  const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (isMobile) {
+    const natural = list.find(isLikelyNaturalVoice);
+    if (natural) return natural;
+  }
+  return list[0];
 }
 
 /**

@@ -1,5 +1,10 @@
 /**
  * Word stats store: tokenize, index, mastery. Persist via IndexedDB or localStorage.
+ *
+ * Word mastery algorithm: A word is mastered when (1) at least one sentence that
+ * contains it is mastered (see sentenceMastery), and (2) totalSeenCount >= MIN_WORD_SEEN.
+ * So words derive from sentence mastery plus exposure; vocabulary stats and "mastered
+ * words" counts use this.
  */
 
 import type { Sentence, WordStats } from '@/types';

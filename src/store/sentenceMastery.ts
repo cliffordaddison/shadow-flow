@@ -1,6 +1,11 @@
 /**
- * Sentence mastery store: mastered when either speaking OR writing has
- * repetitions >= 3 and interval >= 21 days.
+ * Sentence mastery store.
+ *
+ * Mastery algorithm: A sentence is considered mastered when either Speaking OR Writing
+ * has repetitions >= 3 and interval >= 21 days (SRS). When you grade a sentence (Again/Good/Easy)
+ * or use Skip (I know it), review state is updated and updateSentenceMastery() is called.
+ * Lesson completion uses this: all sentences in a lesson must be mastered (plus Listen
+ * completed) before you can switch to another lesson.
  */
 
 import type { SentenceMastery as SentenceMasteryType } from '@/types';

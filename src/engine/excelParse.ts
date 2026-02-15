@@ -68,7 +68,7 @@ function parseSheet(
 }
 
 /**
- * Parse Excel file. Each sheet = one Lesson. First lesson unlocked, rest locked.
+ * Parse Excel file. Each sheet = one Lesson. All lessons unlocked so user can choose any lesson.
  * Creates ReviewState for each sentence × 3 modes.
  * Optional onSheetProgress(sheetIndex, totalSheets) for progress (1-based sheetIndex).
  */
@@ -111,7 +111,7 @@ export function parseExcelFile(
     allSentences.push(...sentences);
     allErrors.push(...errors);
 
-    const isUnlocked = sheetIndex === 0;
+    const isUnlocked = true;
     const lesson: Lesson = {
       id: lessonId,
       courseId,

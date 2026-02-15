@@ -6,7 +6,7 @@ export { listenForSpeech, recognizeSpeech, isSpeechRecognitionSupported } from '
 export { getGlobalStats, getProgressSnapshot, getTodayProgress } from './metrics';
 export { calculateCEFRLevel, getCEFRProgress } from './cefrLevel';
 export { updateStreak, getStreak } from './streaks';
-export { checkLessonCompletion, unlockNextLessonAfterComplete } from './progression';
+export { checkLessonCompletion, isLessonComplete, unlockNextLessonAfterComplete } from './progression';
 export { useListenRepeatSession } from './listenRepeat';
 export { useSpeakingSession } from './speaking';
 export { useWritingSession } from './writing';

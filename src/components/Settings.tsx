@@ -9,6 +9,7 @@ import { getDataStats, resetAllData, resetProgressOnly, deleteAllFiles, exportDa
 import { isWebSpeechSynthesisSupported, isWebSpeechRecognitionSupported } from '@/utils/browserCompat';
 import type { AppSettings } from '@/types';
 import { defaultLearningSettings } from '@/types';
+import { LessonPicker } from '@/components/LessonPicker';
 
 export function Settings() {
   const { settings, setSettings, setSettingsOpen } = useStore();
@@ -80,6 +81,12 @@ export function Settings() {
               Learning
             </h3>
             <div className="settings-card">
+              <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--sf-text-muted)' }}>
+                Choose the lesson used for Listen &amp; Repeat, Speaking, and Writing.
+              </p>
+              <LessonPicker />
+            </div>
+            <div className="settings-card">
               <label style={rowStyle}>
                 <span className="settings-label">TTS speed</span>
                 <input
@@ -117,7 +124,7 @@ export function Settings() {
             </div>
             <div className="settings-card">
               <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--sf-text-muted)' }}>
-                TTS and STT use the Web Speech API. Chrome or Edge recommended for best results.
+                TTS and STT use the Web Speech API. Chrome or Edge recommended for best results. On phones, TTS quality depends on the device—if it sounds robotic, try adjusting TTS speed or use a different browser.
               </p>
               {(!isWebSpeechSynthesisSupported() || !isWebSpeechRecognitionSupported()) && (
                 <p style={{ margin: '8px 0 0', padding: 0, fontSize: 12, color: 'var(--sf-warning)' }}>
@@ -126,6 +133,11 @@ export function Settings() {
                   {!isWebSpeechSynthesisSupported() && isWebSpeechRecognitionSupported() && 'Web Speech TTS is not supported in this browser.'}
                 </p>
               )}
+            </div>
+            <div className="settings-card">
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--sf-text-muted)' }}>
+                <strong>How progress works:</strong> A sentence is mastered after you rate it Good/Easy enough times (or use Skip). Words become mastered when their sentences are mastered. Complete Listen &amp; Repeat, then Speaking/Writing (or skip) for each sentence to finish a lesson. You must finish the current lesson before switching to another.
+              </p>
             </div>
             <div className="settings-card">
               <label style={rowStyle}>
@@ -308,6 +320,9 @@ export function Settings() {
               <span className="material-symbols-outlined" style={{ color: 'var(--sf-error)' }}>warning</span>
               Data Management
             </h3>
+            <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--sf-primary)' }}>
+              Your progress is saved in this browser.
+            </p>
             <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--sf-text-muted)' }}>
               {stats.sentenceCount} sentences, {stats.fileCount} files, ~{stats.uniqueWordsLearned} mastered.
             </p>

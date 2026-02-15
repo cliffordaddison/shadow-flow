@@ -23,6 +23,8 @@ const COURSES_KEY = 'shadowflow-courses';
 const LESSONS_KEY = 'shadowflow-lessons';
 const FILE_METADATA_KEY = 'shadowflow-file-metadata';
 const VERSION_KEY = 'shadowflow-data-version';
+/** Listen & Repeat: which sentences marked "completed" for unlock. Clear on reset so L&R follows same logic as Speaking/Writing. */
+const LISTEN_COMPLETED_KEY = 'shadowflow-listen-completed';
 
 const IDB_STORE_NAMES: db.StoreName[] = ['courses', 'lessons', 'sentences', 'reviewStates', 'wordStats'];
 
@@ -67,7 +69,13 @@ async function clearAllStoresAndMemory(): Promise<void> {
   localStorage.removeItem(LESSONS_KEY);
   localStorage.removeItem(FILE_METADATA_KEY);
   localStorage.removeItem(VERSION_KEY);
+  localStorage.removeItem(LISTEN_COMPLETED_KEY);
   useStore.getState().resetTrainingState();
+}
+
+/** Navigate to app root and load fresh (avoids 404 on Vercel when current path is e.g. /settings). */
+function reloadAppAtRoot(): void {
+  globalThis.location.replace(globalThis.location.origin + '/');
 }
 
 /** Clear all app data from localStorage and, when using IndexedDB, from IDB and in-memory caches. */
@@ -77,11 +85,11 @@ export async function resetAllData(): Promise<void> {
   } catch (err) {
     console.error('resetAllData failed', err);
   } finally {
-    globalThis.location.reload();
+    reloadAppAtRoot();
   }
 }
 
-/** Clear progress only; keep sentences, courses, lessons, file metadata. */
+/** Clear progress only; keep sentences, courses, lessons, file metadata. Aligns with Listen & Repeat by also clearing training selection and listen-completed. */
 export async function resetProgressOnly(): Promise<void> {
   try {
     if (db.getUseIndexedDB()) {
@@ -97,10 +105,12 @@ export async function resetProgressOnly(): Promise<void> {
     localStorage.setItem(REVIEW_STATES_KEY, '[]');
     localStorage.setItem(WORD_STATS_KEY, '[]');
     localStorage.setItem(SENTENCE_MASTERY_KEY, '[]');
+    localStorage.removeItem(LISTEN_COMPLETED_KEY);
+    useStore.getState().resetTrainingState();
   } catch (err) {
     console.error('resetProgressOnly failed', err);
   } finally {
-    globalThis.location.reload();
+    reloadAppAtRoot();
   }
 }
 
@@ -111,7 +121,7 @@ export async function deleteAllFiles(): Promise<void> {
   } catch (err) {
     console.error('deleteAllFiles failed', err);
   } finally {
-    globalThis.location.reload();
+    reloadAppAtRoot();
   }
 }
 
@@ -153,7 +163,7 @@ export async function importData(file: File): Promise<string | null> {
     if (payload.fileMetadata && Array.isArray(payload.fileMetadata)) {
       localStorage.setItem(FILE_METADATA_KEY, JSON.stringify(payload.fileMetadata));
     }
-    globalThis.location.reload();
+    globalThis.location.replace(globalThis.location.origin + '/');
     return null;
   } catch (e) {
     if (e instanceof Error) return e.message;
