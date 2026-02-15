@@ -55,11 +55,11 @@ export function TrainingNavbar({
     <>
       <header className="min-h-[52px] flex-shrink-0 border-b border-slate-200 dark:border-slate-800 bg-[#f6f7f8] dark:bg-slate-900 flex items-center justify-between gap-2 px-3 sm:px-4 md:px-6 lg:px-8 sticky top-0 z-10">
         <div className="flex-1 min-w-0" />
-        <div className="flex justify-center shrink-0 flex-1 min-w-0">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2 rounded-full shadow-sm min-w-0 max-w-full">
-            <h2 className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 sm:gap-2 text-center whitespace-normal break-words leading-tight">
+        <div className="flex justify-start shrink-0 flex-1 min-w-0 overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2 rounded-full shadow-sm whitespace-nowrap max-w-full">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 sm:gap-2">
               <span className="material-symbols-outlined text-sm sm:text-base shrink-0">{modeIcon}</span>
-              <span>{modeLabel}</span>
+              <span className="truncate">{modeLabel}</span>
             </h2>
           </div>
         </div>
