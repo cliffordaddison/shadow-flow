@@ -1,24 +1,46 @@
 /**
  * Text-to-Speech (French) via Web Speech API.
+ * iOS Safari: voices load asynchronously—must wait for voiceschanged before getVoices() returns Premium/natural voices.
  */
 
 import { useState, useEffect } from 'react';
 
 const FRENCH_LANG = 'fr-FR';
+const VOICES_LOAD_TIMEOUT_MS = 3000;
 
 let synth: SpeechSynthesis | null = null;
 
 function getSynth(): SpeechSynthesis | null {
   if (typeof window === 'undefined') return null;
-  if (!synth) synth = window.speechSynthesis;
+  if (!synth) {
+    synth = window.speechSynthesis;
+    // iOS: calling getVoices() primes async load; voiceschanged fires when ready
+    if (synth) void synth.getVoices();
+  }
   return synth;
 }
 
-/** French voices (fr-*). Populated after onvoiceschanged. */
+/** French voices (fr-*). Populated after onvoiceschanged (async on iOS). */
 function getFrenchVoices(): SpeechSynthesisVoice[] {
   const s = getSynth();
   if (!s) return [];
   return s.getVoices().filter((v) => v.lang.toLowerCase().startsWith('fr'));
+}
+
+/** Wait for voices to load. Required on iOS Safari where getVoices() is initially empty. */
+function waitForVoicesLoaded(): Promise<void> {
+  const s = getSynth();
+  if (!s) return Promise.resolve();
+  if (getFrenchVoices().length > 0) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const timeout = setTimeout(() => resolve(), VOICES_LOAD_TIMEOUT_MS);
+    const onVoicesChanged = () => {
+      clearTimeout(timeout);
+      s.removeEventListener('voiceschanged', onVoicesChanged);
+      resolve();
+    };
+    s.addEventListener('voiceschanged', onVoicesChanged);
+  });
 }
 
 export function getTTSVoices(): SpeechSynthesisVoice[] {
@@ -39,16 +61,27 @@ export function useFrenchVoices(): SpeechSynthesisVoice[] {
   return voices;
 }
 
-/** Prefer voices that often sound more natural on mobile (e.g. Google, enhanced). */
+/** Prefer voices that often sound more natural on mobile (e.g. Premium, Amélie, Google, enhanced). */
 function isLikelyNaturalVoice(v: SpeechSynthesisVoice): boolean {
   const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
-  return /google|enhanced|premium|natural|samsung|female|male|online/.test(n);
+  return /google|enhanced|premium|natural|samsung|female|male|online|amélie/.test(n);
 }
 
-/** First available fr-* voice for fallback when stored voice is missing or not French. On mobile, prefer voices that typically sound less robotic. */
+/** iOS Safari: Premium and Amélie are the natural-sounding voices; robotic without them. */
+function getPreferredNaturalVoice(list: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const lower = (n: string) => n.toLowerCase();
+  return list.find((v) => lower(v.name).includes('premium') || lower(v.name).includes('amélie')) ?? list.find((v) => v.lang === FRENCH_LANG) ?? null;
+}
+
+/** First available fr-* voice for fallback when stored voice is missing or not French. On mobile, prefer Premium/Amélie (iOS) or other natural voices. */
 export function getDefaultFrenchVoice(): SpeechSynthesisVoice | null {
   const list = getFrenchVoices();
   if (list.length === 0) return null;
+  const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (isIOS) {
+    const preferred = getPreferredNaturalVoice(list);
+    if (preferred) return preferred;
+  }
   const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   if (isMobile) {
     const natural = list.find(isLikelyNaturalVoice);
@@ -74,7 +107,7 @@ function resolveFrenchVoice(options: { voice?: SpeechSynthesisVoice | string }):
 }
 
 /** Speak French text. Returns a promise that resolves when utterance ends. */
-export function speakFrench(
+export async function speakFrench(
   text: string,
   options: { rate?: number; volume?: number; voice?: SpeechSynthesisVoice } = {}
 ): Promise<void> {
@@ -83,12 +116,14 @@ export function speakFrench(
   if (!s) {
     return Promise.reject(new Error('Speech synthesis not supported'));
   }
+  await waitForVoicesLoaded();
+  const voice = options.voice ?? getDefaultFrenchVoice();
   return new Promise((resolve, reject) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = FRENCH_LANG;
     u.rate = rate;
     u.volume = options.volume ?? 1;
-    if (options.voice) u.voice = options.voice;
+    if (voice) u.voice = voice;
     u.onend = () => resolve();
     u.onerror = (e) => reject(e);
     s.speak(u);
@@ -102,12 +137,13 @@ export interface SpeakOptions {
 }
 
 /** Speak sentence and return approximate duration in ms (for repeat window). */
-export function speakSentence(text: string, options: SpeakOptions = {}): Promise<number> {
+export async function speakSentence(text: string, options: SpeakOptions = {}): Promise<number> {
   const rate = options.rate ?? 1;
   const s = getSynth();
   if (!s) {
     return Promise.reject(new Error('Speech synthesis not supported'));
   }
+  await waitForVoicesLoaded();
   const start = performance.now();
   const voice = resolveFrenchVoice(options);
   return new Promise((resolve, reject) => {
