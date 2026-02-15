@@ -76,6 +76,7 @@ export function SettingsPage() {
         modeLabel="Settings"
         navbarMetrics={SETTINGS_NAVBAR_METRICS}
         allMetrics={SETTINGS_NAVBAR_METRICS}
+        progressButtonLabel="Data"
       />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-16 max-w-4xl mx-auto w-full space-y-10 sm:space-y-12">
         <section>
@@ -151,6 +152,7 @@ export function SettingsPage() {
           <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">timer</span>
+              {' '}
               Training Settings
             </h3>
             <p className="text-sm text-slate-500 mt-1">Timing and SRS.</p>
@@ -158,7 +160,7 @@ export function SettingsPage() {
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300 pt-2" id="settings-timing-profile-label">Timing Profile</span>
-              <div className="md:col-span-2" role="group" aria-labelledby="settings-timing-profile-label">
+              <fieldset className="md:col-span-2 border-0 p-0 m-0" aria-labelledby="settings-timing-profile-label">
                 <div className="grid grid-cols-3 gap-3">
                   {(['beginner', 'intermediate', 'advanced'] as const).map((profile) => (
                     <button
@@ -175,7 +177,7 @@ export function SettingsPage() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </fieldset>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <label htmlFor="settings-srs-balanced" className="text-sm font-medium text-slate-700 dark:text-slate-300 pt-2">SRS Algorithm</label>
@@ -205,6 +207,7 @@ export function SettingsPage() {
           <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">restart_alt</span>
+              {' '}
               Data Reset
             </h3>
             <p className="text-sm text-slate-500 mt-1">Clear cached or imported data. The app will reload after each action.</p>

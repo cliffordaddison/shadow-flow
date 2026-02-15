@@ -171,6 +171,7 @@ export function UploadCourse() {
         modeLabel="Upload File"
         navbarMetrics={UPLOAD_NAVBAR_METRICS}
         allMetrics={UPLOAD_NAVBAR_METRICS}
+        progressButtonLabel="Courses"
       />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-8 py-10">

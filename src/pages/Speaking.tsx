@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { TrainingNavbar } from '@/components/layout/TrainingNavbar';
 import { LessonHeader } from '@/components/layout/LessonHeader';
 import { useSpeakingSession } from '@/engine/speaking';
 import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
+import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { getCourse, getLesson } from '@/store/courses';
 import { getSentencesByLessonId, getAllSentences } from '@/store/sentences';
 import { getReviewState } from '@/store/reviewStates';
@@ -167,10 +168,44 @@ function SpeakingGradeFooter({ session }: Readonly<{ session: SessionLike }>) {
   );
 }
 
+function renderSpeakingMainContent(
+  currentLessonId: string | null,
+  session: SessionLike
+): ReactNode {
+  if (currentLessonId && session.current) {
+    return (
+      <>
+        <SpeakingCard session={session} />
+        <SpeakingCompareResult session={session} />
+        {session.error && (
+          <div className="w-full max-w-2xl p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm">
+            {session.error}
+          </div>
+        )}
+      </>
+    );
+  }
+  if (currentLessonId) {
+    return (
+      <div className="text-center text-slate-500 dark:text-slate-400">
+        <p>No sentences due for speaking.</p>
+        <p className="mt-2 text-sm">Complete Listen & Repeat first or upload a course.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="text-center text-slate-500 dark:text-slate-400">
+      <p>No lesson selected.</p>
+      <p className="mt-2 text-sm">Upload a course and select a lesson.</p>
+    </div>
+  );
+}
+
 export function Speaking() {
   const currentLessonId = useStore((s) => s.currentLessonId);
   const currentCourseId = useStore((s) => s.currentCourseId);
   const session = useSpeakingSession(currentLessonId ?? undefined);
+  useScreenWakeLock();
   const snapshot = getProgressSnapshot('speak');
   const course = currentCourseId ? getCourse(currentCourseId) : null;
   const totalSentences = getAllSentences().length;
@@ -206,36 +241,17 @@ export function Speaking() {
         modeLabel="Speaking"
         navbarMetrics={SPEAKING_NAVBAR_METRICS}
         allMetrics={SPEAKING_ALL_METRICS}
+        progressButtonLabel="Stats"
       />
       <LessonHeader
         courseName={courseName}
         lessonName={lessonName}
-        progressLabel="Progress"
+        progressLabel="Reviews"
         progressValue={progressValue}
         metrics={SPEAKING_PAGE_METRICS}
       />
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center max-w-4xl mx-auto w-full px-6 py-8 overflow-y-auto">
-        {currentLessonId && session.current ? (
-          <>
-            <SpeakingCard session={session} />
-            <SpeakingCompareResult session={session} />
-            {session.error && (
-              <div className="w-full max-w-2xl p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm">
-                {session.error}
-              </div>
-            )}
-          </>
-        ) : currentLessonId ? (
-          <div className="text-center text-slate-500 dark:text-slate-400">
-            <p>No sentences due for speaking.</p>
-            <p className="mt-2 text-sm">Complete Listen & Repeat first or upload a course.</p>
-          </div>
-        ) : (
-          <div className="text-center text-slate-500 dark:text-slate-400">
-            <p>No lesson selected.</p>
-            <p className="mt-2 text-sm">Upload a course and select a lesson.</p>
-          </div>
-        )}
+        {renderSpeakingMainContent(currentLessonId, session)}
       </div>
 
       {currentLessonId && session.current && session.compareResult && <SpeakingGradeFooter session={session} />}

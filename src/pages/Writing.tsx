@@ -1,5 +1,6 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { TrainingNavbar } from '@/components/layout/TrainingNavbar';
+import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { LessonHeader } from '@/components/layout/LessonHeader';
 import { useWritingSession } from '@/engine/writing';
 import { getProgressSnapshot } from '@/engine/metrics';
@@ -8,9 +9,37 @@ import { getSentencesByLessonId, getAllSentences } from '@/store/sentences';
 import { useStore } from '@/store/useStore';
 import { getCourse, getLesson } from '@/store/courses';
 
+function DiffWordSpan({ item }: Readonly<{ item: { word: string; status: 'correct' | 'missing' | 'wrong' } }>) {
+  if (item.status === 'correct') {
+    return <span>{item.word} </span>;
+  }
+  if (item.status === 'missing') {
+    return <span className="text-primary font-semibold underline decoration-2">[{item.word}] </span>;
+  }
+  return <span className="line-through text-red-600 dark:text-red-400">{item.word} </span>;
+}
+
+function renderWritingEmptyState(currentLessonId: string | null): ReactNode {
+  if (currentLessonId) {
+    return (
+      <div className="text-center text-slate-500 dark:text-slate-400">
+        <p>No sentences due for writing.</p>
+        <p className="mt-2 text-sm">Complete Listen & Repeat and Speaking first.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="text-center text-slate-500 dark:text-slate-400">
+      <p>No lesson selected.</p>
+      <p className="mt-2 text-sm">Upload a course and select a lesson.</p>
+    </div>
+  );
+}
+
 export function Writing() {
   const feedbackRef = useRef<HTMLDivElement>(null);
   const currentLessonId = useStore((s) => s.currentLessonId);
+  useScreenWakeLock();
   const currentCourseId = useStore((s) => s.currentCourseId);
   const session = useWritingSession(currentLessonId ?? undefined);
   const snapshot = getProgressSnapshot('write');
@@ -62,11 +91,12 @@ export function Writing() {
         modeLabel="Writing"
         navbarMetrics={WRITING_NAVBAR_METRICS}
         allMetrics={WRITING_ALL_METRICS}
+        progressButtonLabel="Stats"
       />
       <LessonHeader
         courseName={courseName}
         lessonName={lessonName}
-        progressLabel="Progress"
+        progressLabel="Written"
         progressValue={progressValue}
         metrics={WRITING_PAGE_METRICS}
       />
@@ -83,10 +113,11 @@ export function Writing() {
                 </h2>
               </div>
               <div className="space-y-4">
-                <label className="block text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">
+                <label htmlFor="writing-french-input" className="block text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">
                   Type this in French
                 </label>
                 <textarea
+                  id="writing-french-input"
                   value={session.userInput}
                   onChange={(e) => session.setUserInput(e.target.value)}
                   className="w-full min-h-[100px] sm:min-h-[140px] p-3 sm:p-5 text-[clamp(0.9375rem,2.5vw+0.5rem,1.25rem)] bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none leading-relaxed text-slate-900 dark:text-slate-100"
@@ -99,6 +130,7 @@ export function Writing() {
                     className="bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 sm:py-3 px-5 sm:px-8 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center gap-2 group"
                   >
                     Check Answer
+                    {' '}
                     <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">
                       arrow_forward
                     </span>
@@ -152,15 +184,9 @@ export function Writing() {
                   </h4>
                   <div className="p-3 sm:p-5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 overflow-x-auto">
                     <p className="text-[clamp(0.75rem,2vw+0.4rem,1rem)] sm:text-[clamp(0.875rem,2.5vw+0.5rem,1.125rem)] font-medium leading-relaxed text-slate-900 dark:text-slate-100 break-words hyphens-none">
-                      {session.diff?.map((d, i) =>
-                        d.status === 'correct' ? (
-                          <span key={i}>{d.word} </span>
-                        ) : d.status === 'missing' ? (
-                          <span key={i} className="text-primary font-semibold underline decoration-2">[{d.word}] </span>
-                        ) : (
-                          <span key={i} className="line-through text-red-600 dark:text-red-400">{d.word} </span>
-                        )
-                      )}
+                      {session.diff?.map((d, i) => (
+                        <DiffWordSpan key={`${i}-${d.word}-${d.status}`} item={d} />
+                      ))}
                     </p>
                   </div>
                 </div>
@@ -207,17 +233,7 @@ export function Writing() {
               </div>
             )}
           </div>
-        ) : currentLessonId ? (
-          <div className="text-center text-slate-500 dark:text-slate-400">
-            <p>No sentences due for writing.</p>
-            <p className="mt-2 text-sm">Complete Listen & Repeat and Speaking first.</p>
-          </div>
-        ) : (
-          <div className="text-center text-slate-500 dark:text-slate-400">
-            <p>No lesson selected.</p>
-            <p className="mt-2 text-sm">Upload a course and select a lesson.</p>
-          </div>
-        )}
+        ) : renderWritingEmptyState(currentLessonId)}
       </div>
     </div>
   );

@@ -6,10 +6,12 @@ import { cancelTTS } from '@/engine/tts';
 import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
 import { getCourse } from '@/store/courses';
+import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 
 export function ListenRepeat() {
   const currentLessonId = useStore((s) => s.currentLessonId);
   const session = useListenRepeatSession(currentLessonId);
+  useScreenWakeLock();
 
   useEffect(() => {
     return () => {
@@ -43,11 +45,12 @@ export function ListenRepeat() {
         modeLabel="Listen & Repeat"
         navbarMetrics={LISTEN_NAVBAR_METRICS}
         allMetrics={LISTEN_ALL_METRICS}
+        progressButtonLabel="Stats"
       />
       <LessonHeader
         courseName={courseName}
         lessonName={lessonName}
-        progressLabel="Progress"
+        progressLabel="Position"
         progressValue={progressValue}
         metrics={[]}
       />

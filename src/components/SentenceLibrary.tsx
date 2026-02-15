@@ -5,7 +5,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAllSentences, getProgressMap, getSentenceIdsByFileId, removeSentencesByFileId } from '@/store/sentences';
-import { getAllFileMetadata, addFileMetadata, removeFileMetadata, setFileCategory, type FileCategory } from '@/store/files';
+import { getAllFileMetadata, addFileMetadata, removeFileMetadata, setFileCategory, type FileCategory, type FileMetadata } from '@/store/files';
 import { removeCourse, getLessonsForCourse, getLesson } from '@/store/courses';
 import { removeReviewStatesBySentenceIds } from '@/store/reviewStates';
 import { removeSentenceMasteryBySentenceIds } from '@/store/sentenceMastery';
@@ -14,6 +14,155 @@ import { parseExcelFile, persistExcelImport } from '@/engine/excelImport';
 import { MASTERY_LEVEL_NAMES } from '@/types';
 
 const CATEGORIES: (FileCategory | 'All')[] = ['All', 'Lessons', 'Conversations', 'Grammar', 'Vocabulary'];
+
+function FileCard({
+  file,
+  isOpen,
+  fileSentences,
+  progressMap,
+  onToggle,
+  onCategoryChange,
+  onDelete,
+  refresh,
+}: Readonly<{
+  file: FileMetadata;
+  isOpen: boolean;
+  fileSentences: { id: string; english: string; french: string }[];
+  progressMap: Map<string, { speakingLevel: number }>;
+  onToggle: () => void;
+  onCategoryChange: (fileId: string, category: FileCategory) => void;
+  onDelete: (fileId: string, name: string) => void;
+  refresh: () => void;
+}>) {
+  const sentenceCount = fileSentences.length;
+  return (
+    <div
+      style={{
+        background: 'var(--sf-bg-card)',
+        border: '1px solid var(--sf-border)',
+        borderRadius: 12,
+        marginBottom: 8,
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+          cursor: 'pointer',
+          width: '100%',
+          border: 'none',
+          background: 'transparent',
+          textAlign: 'left',
+        }}
+        onClick={onToggle}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="material-symbols-outlined" style={{ color: 'var(--sf-primary)' }}>folder_open</span>
+          <div>
+            <div style={{ fontWeight: 600 }}>{file.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--sf-text-dim)' }}>
+              {file.sentenceCount} sentences · {file.sheetNames.join(', ')} · {new Date(file.uploadedAt).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <select
+            value={file.category}
+            onChange={(e) => {
+              onCategoryChange(file.id, e.target.value as FileCategory);
+              refresh();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: '1px solid var(--sf-border)',
+              background: 'var(--sf-bg-elevated)',
+              color: 'var(--sf-text)',
+              fontSize: 12,
+            }}
+          >
+            {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(file.id, file.name);
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'var(--sf-error)',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </button>
+      {isOpen && (
+        <div style={{ padding: '0 16px 12px', borderTop: '1px solid var(--sf-border)' }}>
+          {fileSentences.slice(0, 20).map((s) => {
+            const p = progressMap.get(s.id);
+            const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel] ?? 'New' : 'New';
+            return (
+              <div
+                key={s.id}
+                style={{
+                  padding: '10px 0',
+                  borderBottom: '1px solid var(--sf-border-muted)',
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.english}</div>
+                <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.french}</div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: 'var(--sf-bg-elevated)',
+                    color: 'var(--sf-text-muted)',
+                    marginRight: 8,
+                  }}
+                >
+                  {levelName}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: 'rgba(19,91,236,0.15)',
+                    color: 'var(--sf-primary)',
+                  }}
+                >
+                  {file.category}
+                </span>
+              </div>
+            );
+          })}
+          {sentenceCount > 20 && (
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--sf-text-dim)' }}>
+              +{sentenceCount - 20} more
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SentenceLibrary() {
   const { setLearningView } = useStore();
@@ -79,6 +228,15 @@ export function SentenceLibrary() {
   const setCurrentCourseId = useStore((s) => s.setCurrentCourseId);
   const setCurrentLessonId = useStore((s) => s.setCurrentLessonId);
   const clearListenRepeatStateForLessonIds = useStore((s) => s.clearListenRepeatStateForLessonIds);
+
+  const toggleExpandedFile = useCallback((fileId: string) => {
+    setExpandedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  }, []);
 
   const confirmDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -226,144 +384,19 @@ export function SentenceLibrary() {
                   <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 700, color: 'var(--sf-text-muted)', textTransform: 'uppercase' }}>
                     {cat}
                   </h4>
-                  {filesInCat.map((f) => {
-                    const open = expandedFiles.has(f.id);
-                    const sentenceCountInFile = sentences.filter((s) => s.sourceFileId === f.id).length;
-                    const fileSentences = sentences.filter((s) => s.sourceFileId === f.id);
-                    return (
-                      <div
-                        key={f.id}
-                        style={{
-                          background: 'var(--sf-bg-card)',
-                          border: '1px solid var(--sf-border)',
-                          borderRadius: 12,
-                          marginBottom: 8,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <button
-                          type="button"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '12px 16px',
-                            cursor: 'pointer',
-                            width: '100%',
-                            border: 'none',
-                            background: 'transparent',
-                            textAlign: 'left',
-                          }}
-                          onClick={() => setExpandedFiles((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(f.id)) next.delete(f.id);
-                            else next.add(f.id);
-                            return next;
-                          })}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <span className="material-symbols-outlined" style={{ color: 'var(--sf-primary)' }}>folder_open</span>
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{f.name}</div>
-                              <div style={{ fontSize: 12, color: 'var(--sf-text-dim)' }}>
-                                {f.sentenceCount} sentences · {f.sheetNames.join(', ')} · {new Date(f.uploadedAt).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <select
-                              value={f.category}
-                              onChange={(e) => {
-                                setFileCategory(f.id, e.target.value as FileCategory);
-                                refresh();
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                padding: '4px 8px',
-                                borderRadius: 6,
-                                border: '1px solid var(--sf-border)',
-                                background: 'var(--sf-bg-elevated)',
-                                color: 'var(--sf-text)',
-                                fontSize: 12,
-                              }}
-                            >
-                              {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                                <option key={c} value={c}>{c}</option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFile(f.id, f.name);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                border: 'none',
-                                background: 'var(--sf-error)',
-                                color: 'white',
-                                cursor: 'pointer',
-                                fontSize: 12,
-                                fontWeight: 600,
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </button>
-                        {open && (
-                          <div style={{ padding: '0 16px 12px', borderTop: '1px solid var(--sf-border)' }}>
-                            {fileSentences.slice(0, 20).map((s) => {
-                              const p = progressMap.get(s.id);
-                              const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel] ?? 'New' : 'New';
-                              return (
-                                <div
-                                  key={s.id}
-                                  style={{
-                                    padding: '10px 0',
-                                    borderBottom: '1px solid var(--sf-border-muted)',
-                                    fontSize: 13,
-                                  }}
-                                >
-                                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.english}</div>
-                                  <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.french}</div>
-                                  <span
-                                    style={{
-                                      fontSize: 11,
-                                      padding: '2px 8px',
-                                      borderRadius: 6,
-                                      background: 'var(--sf-bg-elevated)',
-                                      color: 'var(--sf-text-muted)',
-                                      marginRight: 8,
-                                    }}
-                                  >
-                                    {levelName}
-                                  </span>
-                                  <span
-                                    style={{
-                                      fontSize: 11,
-                                      padding: '2px 8px',
-                                      borderRadius: 6,
-                                      background: 'rgba(19,91,236,0.15)',
-                                      color: 'var(--sf-primary)',
-                                    }}
-                                  >
-                                    {f.category}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            {sentenceCountInFile > 20 && (
-                              <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--sf-text-dim)' }}>
-                                +{sentenceCountInFile - 20} more
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {filesInCat.map((f) => (
+                    <FileCard
+                      key={f.id}
+                      file={f}
+                      isOpen={expandedFiles.has(f.id)}
+                      fileSentences={sentences.filter((s) => s.sourceFileId === f.id)}
+                      progressMap={progressMap}
+                      onToggle={() => toggleExpandedFile(f.id)}
+                      onCategoryChange={setFileCategory}
+                      onDelete={handleDeleteFile}
+                      refresh={refresh}
+                    />
+                  ))}
                 </div>
               );
             })}
@@ -447,27 +480,37 @@ export function SentenceLibrary() {
             justifyContent: 'center',
             zIndex: 100,
             padding: 24,
-            border: 'none',
             width: '100%',
-            maxWidth: 'none',
             height: '100%',
-            maxHeight: 'none',
             margin: 0,
+            border: 'none',
           }}
-          onClick={() => setDeleteConfirm(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setDeleteConfirm(null)}
         >
-          <div
-            role="document"
+          <button
+            type="button"
+            aria-label="Close dialog"
+            onClick={() => setDeleteConfirm(null)}
             style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          />
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
               background: 'var(--sf-bg-card)',
               border: '1px solid var(--sf-border)',
               borderRadius: 16,
               padding: 24,
               maxWidth: 400,
             }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
           >
             <h3 id="delete-dialog-title" style={{ margin: '0 0 12px' }}>Delete file?</h3>
             <p style={{ margin: '0 0 20px', color: 'var(--sf-text-muted)', fontSize: 14 }}>

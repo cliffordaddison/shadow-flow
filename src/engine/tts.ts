@@ -11,11 +11,11 @@ const VOICES_LOAD_TIMEOUT_MS = 3000;
 let synth: SpeechSynthesis | null = null;
 
 function getSynth(): SpeechSynthesis | null {
-  if (typeof window === 'undefined') return null;
+  if (globalThis.window === undefined) return null;
   if (!synth) {
-    synth = window.speechSynthesis;
+    synth = (globalThis as Window & typeof globalThis).speechSynthesis;
     // iOS: calling getVoices() primes async load; voiceschanged fires when ready
-    if (synth) void synth.getVoices();
+    synth?.getVoices();
   }
   return synth;
 }
@@ -95,14 +95,14 @@ export function getDefaultFrenchVoice(): SpeechSynthesisVoice | null {
  */
 function resolveFrenchVoice(options: { voice?: SpeechSynthesisVoice | string }): SpeechSynthesisVoice | null {
   const fallback = getDefaultFrenchVoice();
-  if (!options.voice) return fallback;
+  if (!options?.voice) return fallback;
   if (typeof options.voice === 'string') {
     const list = getFrenchVoices();
     const v = list.find((x) => x.name === options.voice || x.voiceURI === options.voice);
-    if (!v || !v.lang.toLowerCase().startsWith('fr')) return fallback;
+    if (!v?.lang?.toLowerCase().startsWith('fr')) return fallback;
     return v;
   }
-  if (!options.voice.lang.toLowerCase().startsWith('fr')) return fallback;
+  if (!options.voice?.lang?.toLowerCase().startsWith('fr')) return fallback;
   return options.voice;
 }
 
@@ -114,7 +114,7 @@ export async function speakFrench(
   const rate = options.rate ?? 1;
   const s = getSynth();
   if (!s) {
-    return Promise.reject(new Error('Speech synthesis not supported'));
+    throw new Error('Speech synthesis not supported');
   }
   await waitForVoicesLoaded();
   const voice = options.voice ?? getDefaultFrenchVoice();
@@ -125,7 +125,7 @@ export async function speakFrench(
     u.volume = options.volume ?? 1;
     if (voice) u.voice = voice;
     u.onend = () => resolve();
-    u.onerror = (e) => reject(e);
+    u.onerror = (e) => reject(e instanceof Error ? e : new Error(String(e.error ?? 'Speech synthesis error')));
     s.speak(u);
   });
 }
@@ -141,7 +141,7 @@ export async function speakSentence(text: string, options: SpeakOptions = {}): P
   const rate = options.rate ?? 1;
   const s = getSynth();
   if (!s) {
-    return Promise.reject(new Error('Speech synthesis not supported'));
+    throw new Error('Speech synthesis not supported');
   }
   await waitForVoicesLoaded();
   const start = performance.now();
@@ -156,7 +156,7 @@ export async function speakSentence(text: string, options: SpeakOptions = {}): P
       const durationMs = Math.round(performance.now() - start);
       resolve(durationMs);
     };
-    u.onerror = (e) => reject(e);
+    u.onerror = (e) => reject(e instanceof Error ? e : new Error(String(e.error ?? 'Speech synthesis error')));
     s.speak(u);
   });
 }
