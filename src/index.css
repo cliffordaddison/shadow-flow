@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.35s;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.diff-del {
+  background-color: #fee2e2;
+  color: #991b1b;
+  text-decoration: line-through;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.diff-ins {
+  background-color: #dcfce7;
+  color: #166534;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Range slider: let track use component background; style thumb so it’s visible */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--tw-color-primary, #3b82f6);
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+input[type='range']::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--tw-color-primary, #3b82f6);
+  cursor: pointer;
+  border: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+input[type='range']:focus {
+  outline: none;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+}

@@ -1,0 +1,12 @@
+export { compareTexts, preprocess, calculateSimilarity, generateDiff } from './comparison';
+export { updateReviewState, getNextSentence, isDue, calculateDueDate } from './srs';
+export { speakFrench, speakSentence, speakNTimes, getTTSVoices, cancelTTS } from './tts';
+export { parseExcelFile, persistExcelImport } from './excelImport';
+export { listenForSpeech, recognizeSpeech, isSpeechRecognitionSupported } from './stt';
+export { getGlobalStats, getProgressSnapshot, getTodayProgress } from './metrics';
+export { calculateCEFRLevel, getCEFRProgress } from './cefrLevel';
+export { updateStreak, getStreak } from './streaks';
+export { checkLessonCompletion, unlockNextLessonAfterComplete } from './progression';
+export { useListenRepeatSession } from './listenRepeat';
+export { useSpeakingSession } from './speaking';
+export { useWritingSession } from './writing';
