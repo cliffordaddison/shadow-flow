@@ -183,6 +183,17 @@ export interface DailySessionPlan {
 
 // ─── Unique word tracker (legacy shape for compatibility) ───────────────────
 
+/** Display names for SRS speaking level (0–6). */
+export const MASTERY_LEVEL_NAMES: Record<number, string> = {
+  0: 'New',
+  1: 'Learning',
+  2: 'Familiar',
+  3: 'Review',
+  4: 'Strong',
+  5: 'Confident',
+  6: 'Mastered',
+};
+
 export interface UniqueWordsStats {
   totalUniqueWords: number;
   byCategory?: Record<string, number>;

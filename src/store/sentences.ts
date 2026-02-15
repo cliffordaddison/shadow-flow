@@ -99,6 +99,25 @@ export function updateSpeakingResult(sentenceId: string, score: number): void {
   updateReviewState(sentenceId, 'speak', grade as 0 | 1 | 2);
 }
 
+/** Map sentenceId -> { speakingLevel } derived from speak review state. Level 0–6 for display. */
+export function getProgressMap(): Map<string, { speakingLevel: number }> {
+  const map = new Map<string, { speakingLevel: number }>();
+  for (const s of sentences) {
+    const rs = getReviewState(s.id, 'speak');
+    let level = 0;
+    if (rs.repetitions >= 3 && rs.interval >= 21) level = 6;
+    else if (rs.repetitions >= 1 || rs.interval > 0) {
+      if (rs.interval >= 14) level = 5;
+      else if (rs.interval >= 7) level = 4;
+      else if (rs.interval >= 3) level = 3;
+      else if (rs.interval >= 1) level = 2;
+      else level = 1;
+    }
+    map.set(s.id, { speakingLevel: level });
+  }
+  return map;
+}
+
 export function getUniqueWordsStats(excludeStopwords: boolean = true): UniqueWordsStats {
   const mastered = new Set(getMasteredSentences().map((m) => m.sentenceId));
   return trackUniqueWords(sentences, mastered, excludeStopwords);

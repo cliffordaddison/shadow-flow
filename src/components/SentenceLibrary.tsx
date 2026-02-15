@@ -4,13 +4,13 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { getAllSentences, addSentences, getProgressMap, getSentenceIdsByFileId, removeSentencesByFileId } from '@/store/sentences';
+import { getAllSentences, getProgressMap, getSentenceIdsByFileId, removeSentencesByFileId } from '@/store/sentences';
 import { getAllFileMetadata, addFileMetadata, removeFileMetadata, setFileCategory, type FileCategory } from '@/store/files';
-import { removeCourse, getLessonsForCourse } from '@/store/courses';
+import { removeCourse, getLessonsForCourse, getLesson } from '@/store/courses';
 import { removeReviewStatesBySentenceIds } from '@/store/reviewStates';
 import { removeSentenceMasteryBySentenceIds } from '@/store/sentenceMastery';
 import { pruneWordStatsBySentenceIds } from '@/store/wordStats';
-import { parseExcelFile } from '@/engine/excelImport';
+import { parseExcelFile, persistExcelImport } from '@/engine/excelImport';
 import { MASTERY_LEVEL_NAMES } from '@/types';
 
 const CATEGORIES: (FileCategory | 'All')[] = ['All', 'Lessons', 'Conversations', 'Grammar', 'Vocabulary'];
@@ -52,16 +52,15 @@ export function SentenceLibrary() {
     try {
       const buf = await file.arrayBuffer();
       const baseId = `excel-${Date.now()}`;
-      const { sentences: newSentences, errors, fileMetadata } = parseExcelFile(buf, baseId, file.name);
-      addSentences(newSentences);
-      if (fileMetadata) {
-        addFileMetadata(
-          fileMetadata.id,
-          fileMetadata.filename,
-          fileMetadata.sheetNames,
-          fileMetadata.sentenceCount
-        );
-      }
+      const result = parseExcelFile(buf, baseId, file.name);
+      const { sentences: newSentences, errors } = result;
+      await persistExcelImport(result);
+      addFileMetadata(
+        result.course.id,
+        file.name,
+        result.lessons.map((l) => l.name),
+        result.sentences.length
+      );
       setImportResult({ count: newSentences.length, errors, filename: file.name });
       setImportStatus(null);
       refresh();
@@ -104,9 +103,9 @@ export function SentenceLibrary() {
   const filteredSentences = search.trim()
     ? sentences.filter(
         (s) =>
-          s.englishText.toLowerCase().includes(search.toLowerCase()) ||
-          s.frenchText.toLowerCase().includes(search.toLowerCase()) ||
-          (s.sourceLesson ?? '').toLowerCase().includes(search.toLowerCase())
+          s.english.toLowerCase().includes(search.toLowerCase()) ||
+          s.french.toLowerCase().includes(search.toLowerCase()) ||
+          (getLesson(s.lessonId)?.name ?? '').toLowerCase().includes(search.toLowerCase())
       )
     : sentences;
   const getFileForSentence = (s: { sourceFileId?: string }) =>
@@ -312,12 +311,12 @@ export function SentenceLibrary() {
                               Delete
                             </button>
                           </div>
-                        </div>
+                        </button>
                         {open && (
                           <div style={{ padding: '0 16px 12px', borderTop: '1px solid var(--sf-border)' }}>
                             {fileSentences.slice(0, 20).map((s) => {
                               const p = progressMap.get(s.id);
-                              const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel as keyof typeof MASTERY_LEVEL_NAMES] : 'New';
+                              const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel] ?? 'New' : 'New';
                               return (
                                 <div
                                   key={s.id}
@@ -327,8 +326,8 @@ export function SentenceLibrary() {
                                     fontSize: 13,
                                   }}
                                 >
-                                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.englishText}</div>
-                                  <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.frenchText}</div>
+                                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.english}</div>
+                                  <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.french}</div>
                                   <span
                                     style={{
                                       fontSize: 11,
@@ -383,7 +382,7 @@ export function SentenceLibrary() {
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {filteredSentences.slice(0, 200).map((s) => {
                 const p = progressMap.get(s.id);
-                const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel as keyof typeof MASTERY_LEVEL_NAMES] : 'New';
+                const levelName = p ? MASTERY_LEVEL_NAMES[p.speakingLevel] ?? 'New' : 'New';
                 const fileMeta = getFileForSentence(s);
                 return (
                   <li
@@ -394,8 +393,8 @@ export function SentenceLibrary() {
                       fontSize: 14,
                     }}
                   >
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.englishText}</div>
-                    <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.frenchText}</div>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.english}</div>
+                    <div style={{ color: 'var(--sf-text-muted)', marginBottom: 4 }}>{s.french}</div>
                     <span
                       style={{
                         fontSize: 11,
