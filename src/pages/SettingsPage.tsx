@@ -203,6 +203,16 @@ export function SettingsPage() {
           </div>
         </section>
 
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-4">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm shadow-blue-500/30"
+          >
+            {saved ? 'Saved!' : 'Save Changes'}
+          </button>
+        </div>
+
         <section>
           <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -280,16 +290,6 @@ export function SettingsPage() {
             </div>
           </div>
         </section>
-
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:gap-4 pt-4">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm shadow-blue-500/30"
-          >
-            {saved ? 'Saved!' : 'Save Changes'}
-          </button>
-        </div>
       </div>
     </div>
   );

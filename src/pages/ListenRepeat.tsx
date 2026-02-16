@@ -5,6 +5,7 @@ import { useListenRepeatSession } from '@/engine/listenRepeat';
 import { cancelTTS } from '@/engine/tts';
 import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
+import { PlaybackSpeedControl } from '@/components/PlaybackSpeedControl';
 import { getCourse } from '@/store/courses';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 
@@ -57,24 +58,16 @@ export function ListenRepeat() {
       <div className="flex-1 min-h-0 p-6 md:p-8 flex flex-col items-center justify-center max-w-5xl mx-auto w-full overflow-y-auto">
         <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-x-hidden overflow-y-hidden flex flex-col h-auto min-h-[400px] sm:min-h-[500px]">
           <div className="flex-1 p-4 sm:p-10 flex flex-col items-center justify-center relative min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
-            <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 flex flex-wrap items-center justify-between gap-2 sm:gap-4 min-w-0 overflow-hidden">
-              <span className="px-2 sm:px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wider border border-indigo-100 dark:border-indigo-800/50 shrink-0">
-                Play: {playCountDisplay}/{session.repeatCount}
-              </span>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => session.stopPlayback()}
-                  className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold border transition-colors shrink-0 ${
-                    session.isPlaying
-                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50'
-                      : 'invisible pointer-events-none bg-transparent border-transparent'
-                  }`}
-                  aria-hidden={!session.isPlaying}
-                >
-                  <span className="material-symbols-outlined text-sm sm:text-base">stop</span>
-                  <span className="hidden sm:inline">Stop</span>
-                </button>
+            <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 flex items-center gap-2 sm:gap-4 min-w-0 overflow-hidden">
+              <div className="flex-1 flex items-center justify-start min-w-0">
+                <span className="px-2 sm:px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wider border border-indigo-100 dark:border-indigo-800/50 shrink-0">
+                  Play: {playCountDisplay}/{session.repeatCount}
+                </span>
+              </div>
+              <div className="flex-1 flex items-center justify-center min-w-0">
+                <PlaybackSpeedControl />
+              </div>
+              <div className="flex-1 flex items-center justify-end min-w-0">
                 <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 min-w-0">
                   <input
                     type="checkbox"
@@ -132,16 +125,19 @@ export function ListenRepeat() {
                     </svg>
                     <button
                       type="button"
-                      disabled={session.isPlaying}
-                      onClick={() => session.playCurrent()}
-                      className="absolute size-20 md:size-24 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:bg-blue-600 hover:scale-105 active:scale-95 transition-all group disabled:opacity-70"
-                      aria-label="Play"
+                      onClick={() => (session.isPlaying ? session.stopPlayback() : session.playCurrent())}
+                      className={`absolute size-20 md:size-24 rounded-full flex items-center justify-center shadow-lg transition-all group hover:scale-105 active:scale-95 ${
+                        session.isPlaying
+                          ? 'bg-red-500 text-white shadow-red-500/30 hover:bg-red-600'
+                          : 'bg-primary text-white shadow-primary/30 hover:bg-blue-600'
+                      }`}
+                      aria-label={session.isPlaying ? 'Stop' : 'Play'}
                     >
                       <span
                         className="material-symbols-outlined text-4xl group-hover:scale-110 transition-transform"
                         style={{ fontVariationSettings: "'FILL' 1" }}
                       >
-                        play_arrow
+                        {session.isPlaying ? 'stop' : 'play_arrow'}
                       </span>
                     </button>
                   </div>

@@ -1,6 +1,6 @@
 /**
- * Unique word tracker: tokenize French, optional stopwords, milestones.
- * Uses masteredSentenceIds (from wordStats/sentenceMastery) instead of old SentenceProgress.
+ * Unique word tracker: tokenize French only (s.french), optional stopwords, milestones.
+ * English (s.english) is never counted. Uses masteredSentenceIds (from wordStats/sentenceMastery).
  */
 
 import type { UniqueWordsStats, Sentence } from '@/types';

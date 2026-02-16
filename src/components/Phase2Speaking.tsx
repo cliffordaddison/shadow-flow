@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { getDueSentences, updateSpeakingResult, getUniqueWordsStats } from '@/store/sentences';
+import { PlaybackSpeedControl } from '@/components/PlaybackSpeedControl';
 import { speakFrench, cancelTTS } from '@/engine/tts';
 import { listenForSpeech, isSpeechRecognitionSupported } from '@/engine/stt';
 import { compareTexts } from '@/engine/comparison';
@@ -296,13 +297,14 @@ export function Phase2Speaking() {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 24, flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={handlePlayFrench}
                 disabled={status === 'playing' || status === 'listening'}
                 style={{
                   flex: 1,
+                  minWidth: 140,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -319,6 +321,9 @@ export function Phase2Speaking() {
                 <span className="material-symbols-outlined fill-icon">volume_up</span>
                 Listen to Native
               </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PlaybackSpeedControl />
+              </div>
               <button
                 type="button"
                 className="icon-btn"
