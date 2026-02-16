@@ -27,27 +27,27 @@ export function PlaybackSpeedControl() {
   };
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2 shrink-0" role="group" aria-label="Playback speed">
+    <div className="flex items-center gap-0.5 sm:gap-2 shrink-0" role="group" aria-label="Playback speed">
       <button
         type="button"
         onClick={() => change(-STEP)}
         disabled={clamped <= MIN}
-        className="size-8 sm:size-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+        className="size-7 sm:size-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         aria-label="Decrease speed"
       >
-        <span className="material-symbols-outlined text-lg sm:text-xl">remove</span>
+        <span className="material-symbols-outlined text-base sm:text-xl">remove</span>
       </button>
-      <span className="min-w-[3rem] sm:min-w-[3.5rem] text-center text-[10px] sm:text-xs font-bold tabular-nums text-slate-700 dark:text-slate-300">
+      <span className="min-w-[2.25rem] sm:min-w-[3.5rem] text-center text-[10px] sm:text-xs font-bold tabular-nums text-slate-700 dark:text-slate-300">
         {display}×
       </span>
       <button
         type="button"
         onClick={() => change(STEP)}
         disabled={clamped >= MAX}
-        className="size-8 sm:size-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+        className="size-7 sm:size-9 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         aria-label="Increase speed"
       >
-        <span className="material-symbols-outlined text-lg sm:text-xl">add</span>
+        <span className="material-symbols-outlined text-base sm:text-xl">add</span>
       </button>
     </div>
   );
