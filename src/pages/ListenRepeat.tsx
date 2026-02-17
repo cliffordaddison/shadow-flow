@@ -6,13 +6,28 @@ import { cancelTTS } from '@/engine/tts';
 import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
 import { PlaybackSpeedControl } from '@/components/PlaybackSpeedControl';
-import { getCourse, getLesson, getLessonsForCourse, updateLesson } from '@/store/courses';
+import { getAllCourses, getCourse, getLesson, getLessonsForCourse, updateLesson } from '@/store/courses';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 
 export function ListenRepeat() {
   const currentLessonId = useStore((s) => s.currentLessonId);
   const session = useListenRepeatSession(currentLessonId);
   useScreenWakeLock();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (session.isPlaying) {
+          session.stopPlayback();
+        } else {
+          session.playCurrent();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [session.isPlaying, session.playCurrent, session.stopPlayback]);
 
   useEffect(() => {
     return () => {
@@ -38,14 +53,42 @@ export function ListenRepeat() {
     if (!currentLessonId) return { nextLessonId: null as string | null, hasNextLesson: false, prevLessonId: null as string | null, hasPrevLesson: false };
     const lesson = getLesson(currentLessonId);
     if (!lesson) return { nextLessonId: null, hasNextLesson: false, prevLessonId: null, hasPrevLesson: false };
+
+    // In-course navigation
     const courseLessons = getLessonsForCourse(lesson.courseId);
-    const next = courseLessons.find((l) => l.order === lesson.order + 1);
-    const prev = courseLessons.find((l) => l.order === lesson.order - 1);
+    const nextInCourse = courseLessons.find((l) => l.order === lesson.order + 1);
+    const prevInCourse = courseLessons.find((l) => l.order === lesson.order - 1);
+
+    let nextLessonId: string | null = nextInCourse?.id ?? null;
+    let prevLessonId: string | null = prevInCourse?.id ?? null;
+
+    // Cross-course navigation
+    if (!nextLessonId || !prevLessonId) {
+      const allCourses = getAllCourses();
+      const currentCourseIndex = allCourses.findIndex((c) => c.id === lesson.courseId);
+
+      if (!nextLessonId && currentCourseIndex !== -1 && currentCourseIndex < allCourses.length - 1) {
+        const nextCourse = allCourses[currentCourseIndex + 1];
+        const nextCourseLessons = getLessonsForCourse(nextCourse.id);
+        if (nextCourseLessons.length > 0) {
+          nextLessonId = nextCourseLessons[0].id;
+        }
+      }
+
+      if (!prevLessonId && currentCourseIndex > 0) {
+        const prevCourse = allCourses[currentCourseIndex - 1];
+        const prevCourseLessons = getLessonsForCourse(prevCourse.id);
+        if (prevCourseLessons.length > 0) {
+          prevLessonId = prevCourseLessons[prevCourseLessons.length - 1].id;
+        }
+      }
+    }
+
     return {
-      nextLessonId: next?.id ?? null,
-      hasNextLesson: !!next,
-      prevLessonId: prev?.id ?? null,
-      hasPrevLesson: !!prev,
+      nextLessonId,
+      hasNextLesson: !!nextLessonId,
+      prevLessonId,
+      hasPrevLesson: !!prevLessonId,
     };
   }, [currentLessonId]);
 
@@ -184,36 +227,40 @@ export function ListenRepeat() {
                     <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_next</span>
                   </button>
                 </div>
-                <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleGoToPrevLesson}
-                    disabled={!hasPrevLesson}
-                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
-                    aria-label="Go to previous lesson"
-                    title="Go to previous lesson"
-                  >
-                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_previous</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSkipToNextLesson}
-                    disabled={!hasNextLesson}
-                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
-                    aria-label="Skip to next lesson"
-                    title="Skip to next lesson"
-                  >
-                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_next</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => session.restartSession()}
-                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm"
-                    aria-label="Restart from beginning"
-                    title="Restart from beginning"
-                  >
-                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>restart_alt</span>
-                  </button>
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between sm:justify-end sm:gap-2 pointer-events-none">
+                  <div className="flex items-center gap-2 pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={handleGoToPrevLesson}
+                      disabled={!hasPrevLesson}
+                      className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                      aria-label="Go to previous lesson"
+                      title="Go to previous lesson"
+                    >
+                      <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_previous</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSkipToNextLesson}
+                      disabled={!hasNextLesson}
+                      className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                      aria-label="Skip to next lesson"
+                      title="Skip to next lesson"
+                    >
+                      <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_next</span>
+                    </button>
+                  </div>
+                  <div className="pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => session.restartSession()}
+                      className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm"
+                      aria-label="Restart from beginning"
+                      title="Restart from beginning"
+                    >
+                      <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>restart_alt</span>
+                    </button>
+                  </div>
                 </div>
                 <span className="text-[10px] uppercase font-bold text-slate-300 dark:text-slate-600 tracking-widest mt-2">
                   Space to play
