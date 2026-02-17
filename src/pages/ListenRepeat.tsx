@@ -99,12 +99,14 @@ export function ListenRepeat() {
     if (targetLesson && !targetLesson.isUnlocked) {
       updateLesson({ ...targetLesson, isUnlocked: true });
     }
+    useStore.getState().setListenRepeatState(nextLessonId, 0, 0);
     setCurrentLessonId(nextLessonId);
     useStore.getState().incrementSentenceVersion();
   };
 
   const handleGoToPrevLesson = () => {
     if (!prevLessonId) return;
+    useStore.getState().setListenRepeatState(prevLessonId, 0, 0);
     setCurrentLessonId(prevLessonId);
     useStore.getState().incrementSentenceVersion();
   };

@@ -59,6 +59,11 @@ export function useListenRepeatSession(lessonId: string | null) {
   useEffect(() => {
     if (!lessonId) return;
     if (prevLessonIdRef.current !== lessonId) {
+      // Stop playback from previous lesson immediately
+      abortPlayRef.current = true;
+      cancelTTS();
+      setIsPlaying(false);
+
       prevLessonIdRef.current = lessonId;
       const s = listenRepeatState[lessonId];
       if (s !== undefined && s !== null) {
