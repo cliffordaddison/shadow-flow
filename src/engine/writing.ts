@@ -1,18 +1,25 @@
 /**
- * Writing session: strict accent comparison, character diff, SRS update.
- * Session-level "again" queue: cards marked Again reappear in the same session.
+ * Writing session: strict accent comparison, character diff, session-based SRS.
+ * Time-based session queue: Again → +1 min, Good → +5 min; Easy (1 try) = mastered for session.
+ * Score >= 95% counts as successful attempt for tracking.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getNextSentence, updateReviewState, getOrCreateReviewState } from './srs';
-import { getSentence } from '@/store/sentences';
+import { getSentence, getSentencesByLessonId } from '@/store/sentences';
 import type { Sentence, ReviewGrade, ReviewState } from '@/types';
 import { compareTexts, generateDiff } from './comparison';
-import { updateWordStats, recomputeWordMasteryForSentence } from '@/store/wordStats';
-import { updateSentenceMastery } from '@/store/sentenceMastery';
+import { updateWordStats, getWordIdsForSentence, recomputeWordMasteryForSentence } from '@/store/wordStats';
+import { addWriteWordsToday } from './metrics';
+import { markSentenceMasteredInSession, updateSentenceMastery } from '@/store/sentenceMastery';
 import { updateStreak } from './streaks';
 import { unlockNextLessonAfterComplete } from './progression';
 import { useStore } from '@/store/useStore';
+
+const AGAIN_DELAY_MS = 60000;   // 1 min
+const GOOD_DELAY_MS = 300000;   // 5 min
+
+type ScheduledCard = { sentenceId: string; scheduledTime: number; attemptCount: number };
 
 export function useWritingSession(lessonId?: string) {
   const [current, setCurrent] = useState<{ sentence: Sentence; state: ReviewState } | null>(null);
@@ -20,19 +27,28 @@ export function useWritingSession(lessonId?: string) {
   const [checked, setChecked] = useState(false);
   const [compareResult, setCompareResult] = useState<ReturnType<typeof compareTexts> | null>(null);
   const [suggestedGrade, setSuggestedGrade] = useState<ReviewGrade | null>(null);
-  /** Session "again" queue: when user clicks Again, card is re-queued to reappear in this session. */
-  const againQueue = useRef<string[]>([]);
+  const [againQueueLength, setAgainQueueLength] = useState(0);
+  const [sessionPosition, setSessionPosition] = useState(0);
+  const [uniqueIndex, setUniqueIndex] = useState(0);
+  const scheduledQueue = useRef<ScheduledCard[]>([]);
+  const attemptCounts = useRef<Record<string, number>>({});
   const autoApplyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenSentenceIds = useRef<Set<string>>(new Set());
+
+  const totalInLesson = lessonId ? getSentencesByLessonId(lessonId).length : 0;
 
   const loadNext = useCallback(() => {
-    // Serve from session "again" queue first so "Again" cards come back in this session
-    const queue = againQueue.current;
-    while (queue.length > 0) {
-      const sentenceId = queue.shift()!;
-      const sentence = getSentence(sentenceId);
+    const now = Date.now();
+    const queue = scheduledQueue.current;
+    queue.sort((a, b) => a.scheduledTime - b.scheduledTime);
+    while (queue.length > 0 && queue[0].scheduledTime <= now) {
+      const card = queue.shift()!;
+      setAgainQueueLength(queue.length);
+      const sentence = getSentence(card.sentenceId);
       if (sentence && (!lessonId || sentence.lessonId === lessonId)) {
-        const state = getOrCreateReviewState(sentenceId, 'write');
+        const state = getOrCreateReviewState(card.sentenceId, 'write');
         setCurrent({ sentence, state });
+        setSessionPosition((p) => p + 1);
         setUserInput('');
         setChecked(false);
         setCompareResult(null);
@@ -40,22 +56,43 @@ export function useWritingSession(lessonId?: string) {
         return;
       }
     }
+    setAgainQueueLength(queue.length);
 
     const next = getNextSentence('write', lessonId);
-    if (!next) {
-      setCurrent(null);
-      return;
+    if (next) {
+      const sentence = getSentence(next.sentenceId);
+      if (sentence) {
+        // Track unique sentence index
+        if (!seenSentenceIds.current.has(sentence.id)) {
+          seenSentenceIds.current.add(sentence.id);
+          setUniqueIndex((i) => i + 1);
+        }
+        setCurrent({ sentence, state: next.state });
+        setSessionPosition((p) => p + 1);
+        setUserInput('');
+        setChecked(false);
+        setCompareResult(null);
+        setSuggestedGrade(null);
+        return;
+      }
     }
-    const sentence = getSentence(next.sentenceId);
-    if (!sentence) {
-      setCurrent(null);
-      return;
+    if (queue.length > 0) {
+      const earliest = queue[0];
+      const sentence = getSentence(earliest.sentenceId);
+      if (sentence && (!lessonId || sentence.lessonId === lessonId)) {
+        queue.shift();
+        setAgainQueueLength(queue.length);
+        const state = getOrCreateReviewState(earliest.sentenceId, 'write');
+        setCurrent({ sentence, state });
+        setSessionPosition((p) => p + 1);
+        setUserInput('');
+        setChecked(false);
+        setCompareResult(null);
+        setSuggestedGrade(null);
+        return;
+      }
     }
-    setCurrent({ sentence, state: next.state });
-    setUserInput('');
-    setChecked(false);
-    setCompareResult(null);
-    setSuggestedGrade(null);
+    setCurrent(null);
   }, [lessonId]);
 
   const checkAnswer = useCallback(() => {
@@ -77,11 +114,39 @@ export function useWritingSession(lessonId?: string) {
     }
     const sentenceId = current.sentence.id;
     const lessonId = current.sentence.lessonId;
-    if (grade === 0) againQueue.current.push(sentenceId);
+    const attempts = (attemptCounts.current[sentenceId] ?? 0) + 1;
+    attemptCounts.current[sentenceId] = attempts;
+
+    if (grade === 2 && attempts === 1) {
+      // Easy, 1 try: mastered immediately, no repeat in session
+      markSentenceMasteredInSession(sentenceId, attempts);
+    } else if (grade === 1) {
+      scheduledQueue.current.push({
+        sentenceId,
+        scheduledTime: Date.now() + GOOD_DELAY_MS,
+        attemptCount: attempts,
+      });
+      setAgainQueueLength(scheduledQueue.current.length);
+      updateSentenceMastery(sentenceId, grade, attempts);
+    } else if (grade === 0) {
+      scheduledQueue.current.push({
+        sentenceId,
+        scheduledTime: Date.now() + AGAIN_DELAY_MS,
+        attemptCount: attempts,
+      });
+      setAgainQueueLength(scheduledQueue.current.length);
+      updateSentenceMastery(sentenceId, grade, attempts);
+    }
+
+    // If Easy but not first attempt, still mark mastered
+    if (grade === 2 && attempts > 1) {
+      markSentenceMasteredInSession(sentenceId, attempts);
+    }
+
     updateReviewState(sentenceId, 'write', grade);
     useStore.getState().incrementSentenceVersion();
     updateWordStats(sentenceId, 'write');
-    updateSentenceMastery(sentenceId);
+    if (grade >= 1) addWriteWordsToday(getWordIdsForSentence(sentenceId));
     recomputeWordMasteryForSentence(sentenceId);
     updateStreak('write');
     if (lessonId) unlockNextLessonAfterComplete(lessonId);
@@ -127,5 +192,9 @@ export function useWritingSession(lessonId?: string) {
     skipSentence,
     loadNext,
     diff,
+    againQueueLength,
+    sessionPosition,
+    sessionTotal: totalInLesson,
+    uniqueIndex,
   };
 }

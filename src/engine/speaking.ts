@@ -1,20 +1,26 @@
 /**
- * Speaking session: STT, comparison, grade, SRS update.
+ * Speaking session: STT, comparison, grade, session-based SRS.
+ * Time-based session queue: Again → +1 min, Good → +5 min; Easy (1 try) = mastered for session.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getNextSentence, updateReviewState, getOrCreateReviewState } from './srs';
-import { getSentence } from '@/store/sentences';
-import type { Sentence, ReviewState } from '@/types';
+import { getSentence, getSentencesByLessonId } from '@/store/sentences';
+import type { Sentence, ReviewState, ReviewGrade } from '@/types';
 import { recognizeSpeech } from './stt';
 import { compareTexts } from './comparison';
-import { updateWordStats, recomputeWordMasteryForSentence } from '@/store/wordStats';
-import { updateSentenceMastery } from '@/store/sentenceMastery';
-import type { ReviewGrade } from '@/types';
+import { updateWordStats, getWordIdsForSentence, recomputeWordMasteryForSentence } from '@/store/wordStats';
+import { addSpeakWordsToday } from './metrics';
+import { markSentenceMasteredInSession, updateSentenceMastery } from '@/store/sentenceMastery';
 import { useStore } from '@/store/useStore';
 import { updateStreak } from './streaks';
 import { unlockNextLessonAfterComplete } from './progression';
 import { speakSentence } from './tts';
+
+const AGAIN_DELAY_MS = 60000;   // 1 min
+const GOOD_DELAY_MS = 300000;   // 5 min
+
+type ScheduledCard = { sentenceId: string; scheduledTime: number; attemptCount: number };
 
 export function useSpeakingSession(lessonId?: string) {
   const settings = useStore((s) => s.settings);
@@ -26,21 +32,28 @@ export function useSpeakingSession(lessonId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [againQueueLength, setAgainQueueLength] = useState(0);
+  const [sessionPosition, setSessionPosition] = useState(0);
+  const [uniqueIndex, setUniqueIndex] = useState(0);
   const autoSubmitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listenAbortRef = useRef<(() => void) | null>(null);
-  /** Session "again" queue: when user grades Again, sentence is re-queued to reappear in this session. */
-  const againQueue = useRef<string[]>([]);
+  const scheduledQueue = useRef<ScheduledCard[]>([]);
+  const attemptCounts = useRef<Record<string, number>>({});
+  const seenSentenceIds = useRef<Set<string>>(new Set());
+
+  const totalInLesson = lessonId ? getSentencesByLessonId(lessonId).length : 0;
 
   const loadNext = useCallback(() => {
-    // Serve from session "again" queue first so "Again" cards come back in this session
-    const queue = againQueue.current;
-    while (queue.length > 0) {
-      const sentenceId = queue.shift()!;
+    const now = Date.now();
+    const queue = scheduledQueue.current;
+    queue.sort((a, b) => a.scheduledTime - b.scheduledTime);
+    while (queue.length > 0 && queue[0].scheduledTime <= now) {
+      const card = queue.shift()!;
       setAgainQueueLength(queue.length);
-      const sentence = getSentence(sentenceId);
+      const sentence = getSentence(card.sentenceId);
       if (sentence && (!lessonId || sentence.lessonId === lessonId)) {
-        const state = getOrCreateReviewState(sentenceId, 'speak');
+        const state = getOrCreateReviewState(card.sentenceId, 'speak');
         setCurrent({ sentence, state });
+        setSessionPosition((p) => p + 1);
         setUserText('');
         setCompareResult(null);
         setSuggestedGrade(null);
@@ -49,24 +62,45 @@ export function useSpeakingSession(lessonId?: string) {
         return;
       }
     }
-    setAgainQueueLength(0);
+    setAgainQueueLength(queue.length);
 
     const next = getNextSentence('speak', lessonId);
-    if (!next) {
-      setCurrent(null);
-      return;
+    if (next) {
+      const sentence = getSentence(next.sentenceId);
+      if (sentence) {
+        // Track unique sentence index
+        if (!seenSentenceIds.current.has(sentence.id)) {
+          seenSentenceIds.current.add(sentence.id);
+          setUniqueIndex((i) => i + 1);
+        }
+        setCurrent({ sentence, state: next.state });
+        setSessionPosition((p) => p + 1);
+        setUserText('');
+        setCompareResult(null);
+        setSuggestedGrade(null);
+        setError(null);
+        setAutoSubmitted(false);
+        return;
+      }
     }
-    const sentence = getSentence(next.sentenceId);
-    if (!sentence) {
-      setCurrent(null);
-      return;
+    if (queue.length > 0) {
+      const earliest = queue[0];
+      const sentence = getSentence(earliest.sentenceId);
+      if (sentence && (!lessonId || sentence.lessonId === lessonId)) {
+        queue.shift();
+        setAgainQueueLength(queue.length);
+        const state = getOrCreateReviewState(earliest.sentenceId, 'speak');
+        setCurrent({ sentence, state });
+        setSessionPosition((p) => p + 1);
+        setUserText('');
+        setCompareResult(null);
+        setSuggestedGrade(null);
+        setError(null);
+        setAutoSubmitted(false);
+        return;
+      }
     }
-    setCurrent({ sentence, state: next.state });
-    setUserText('');
-    setCompareResult(null);
-    setSuggestedGrade(null);
-    setError(null);
-    setAutoSubmitted(false);
+    setCurrent(null);
   }, [lessonId]);
 
   const captureSpeech = useCallback(async () => {
@@ -74,18 +108,12 @@ export function useSpeakingSession(lessonId?: string) {
     listenAbortRef.current = () => controller.abort();
     setIsListening(true);
     setError(null);
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a4b9625e-8fba-4712-99a8-d06cb0dd72da',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'speaking.ts:captureSpeech',message:'STT start',data:{timeoutMs:12000,hasCurrent:!!current?.sentence},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
     try {
       const text = await recognizeSpeech({
         lang: 'fr-FR',
         signal: controller.signal,
         timeoutMs: 12000,
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a4b9625e-8fba-4712-99a8-d06cb0dd72da',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'speaking.ts:captureSpeech',message:'STT result',data:{textLength:text?.length??0,textPreview:(text||'').slice(0,80),empty:!(text||'').trim()},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       setUserText(text);
       if (!current?.sentence) return;
       const accentInsensitive = settings.learning.accentInsensitive ?? false;
@@ -101,9 +129,6 @@ export function useSpeakingSession(lessonId?: string) {
       else if (result.score >= settings.learning.similarityThreshold) grade = 1;
       setSuggestedGrade(grade);
     } catch (e) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a4b9625e-8fba-4712-99a8-d06cb0dd72da',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'speaking.ts:captureSpeech',message:'STT error',data:{error:String(e),message:e instanceof Error ? e.message : ''},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       setError(e instanceof Error ? e.message : 'Speech recognition failed');
     } finally {
       setIsListening(false);
@@ -120,11 +145,39 @@ export function useSpeakingSession(lessonId?: string) {
       }
       const sentenceId = current.sentence.id;
       const lessonIdForUnlock = current.sentence.lessonId;
-      if (grade === 0) againQueue.current.push(sentenceId);
+      const attempts = (attemptCounts.current[sentenceId] ?? 0) + 1;
+      attemptCounts.current[sentenceId] = attempts;
+
+      if (grade === 2 && attempts === 1) {
+        // Easy, 1 try: mastered immediately, no repeat in session
+        markSentenceMasteredInSession(sentenceId, attempts);
+      } else if (grade === 1) {
+        scheduledQueue.current.push({
+          sentenceId,
+          scheduledTime: Date.now() + GOOD_DELAY_MS,
+          attemptCount: attempts,
+        });
+        setAgainQueueLength(scheduledQueue.current.length);
+        updateSentenceMastery(sentenceId, grade, attempts);
+      } else if (grade === 0) {
+        scheduledQueue.current.push({
+          sentenceId,
+          scheduledTime: Date.now() + AGAIN_DELAY_MS,
+          attemptCount: attempts,
+        });
+        setAgainQueueLength(scheduledQueue.current.length);
+        updateSentenceMastery(sentenceId, grade, attempts);
+      }
+
+      // If Easy but not first attempt, still mark mastered
+      if (grade === 2 && attempts > 1) {
+        markSentenceMasteredInSession(sentenceId, attempts);
+      }
+
       updateReviewState(sentenceId, 'speak', grade);
       useStore.getState().incrementSentenceVersion();
       updateWordStats(sentenceId, 'speak');
-      updateSentenceMastery(sentenceId);
+      if (grade >= 1) addSpeakWordsToday(getWordIdsForSentence(sentenceId));
       recomputeWordMasteryForSentence(sentenceId);
       updateStreak('speak');
       if (lessonIdForUnlock) unlockNextLessonAfterComplete(lessonIdForUnlock);
@@ -132,7 +185,7 @@ export function useSpeakingSession(lessonId?: string) {
         speakSentence(current.sentence.french, {
           rate: settings.learning.ttsSpeed,
           voice: settings.learning.ttsVoice,
-        }).catch(() => {});
+        }).catch(() => { });
       }
       loadNext();
     },
@@ -195,5 +248,8 @@ export function useSpeakingSession(lessonId?: string) {
     autoSubmitted,
     cancelAutoSubmit,
     againQueueLength,
+    sessionPosition,
+    sessionTotal: totalInLesson,
+    uniqueIndex,
   };
 }

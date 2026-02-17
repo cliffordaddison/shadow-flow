@@ -24,13 +24,13 @@ function loadSentences(): void {
       sentences.length = 0;
       sentences.push(...parsed);
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function saveSentences(): void {
   try {
     localStorage.setItem(SENTENCES_KEY, JSON.stringify(sentences));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export async function initFromDB(): Promise<void> {
@@ -38,7 +38,7 @@ export async function initFromDB(): Promise<void> {
     const data = await db.getAll<Sentence>('sentences');
     sentences.length = 0;
     if (Array.isArray(data)) sentences.push(...data);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function initFromLocalStorage(): void {
@@ -105,14 +105,12 @@ export function getProgressMap(): Map<string, { speakingLevel: number }> {
   for (const s of sentences) {
     const rs = getReviewState(s.id, 'speak');
     let level = 0;
-    if (rs.repetitions >= 3 && rs.interval >= 21) level = 6;
-    else if (rs.repetitions >= 1 || rs.interval > 0) {
-      if (rs.interval >= 14) level = 5;
-      else if (rs.interval >= 7) level = 4;
-      else if (rs.interval >= 3) level = 3;
-      else if (rs.interval >= 1) level = 2;
-      else level = 1;
-    }
+    if (rs.repetitions >= 6) level = 6;
+    else if (rs.repetitions >= 5) level = 5;
+    else if (rs.repetitions >= 4) level = 4;
+    else if (rs.repetitions >= 3) level = 3;
+    else if (rs.repetitions >= 2) level = 2;
+    else if (rs.repetitions >= 1) level = 1;
     map.set(s.id, { speakingLevel: level });
   }
   return map;
@@ -134,7 +132,7 @@ export function addSentences(newSentences: Sentence[]): void {
     }
   }
   if (db.getUseIndexedDB() && toAdd.length > 0) {
-    db.putMany('sentences', toAdd).catch(() => {});
+    db.putMany('sentences', toAdd).catch(() => { });
   } else if (toAdd.length > 0) {
     saveSentences();
   }
@@ -146,7 +144,7 @@ export function setSentences(newSentences: Sentence[]): void {
   if (db.getUseIndexedDB()) {
     db.clearStore('sentences')
       .then(() => (newSentences.length > 0 ? db.putMany('sentences', newSentences) : Promise.resolve()))
-      .catch(() => {});
+      .catch(() => { });
   } else {
     saveSentences();
   }

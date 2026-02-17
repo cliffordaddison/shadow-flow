@@ -1,5 +1,5 @@
 export { compareTexts, preprocess, calculateSimilarity, generateDiff } from './comparison';
-export { updateReviewState, getNextSentence, isDue, calculateDueDate } from './srs';
+export { updateReviewState, getNextSentence, gradeByAttempt, sessionDelayMs } from './srs';
 export { speakFrench, speakSentence, speakNTimes, getTTSVoices, cancelTTS } from './tts';
 export { parseExcelFile, persistExcelImport } from './excelImport';
 export { listenForSpeech, recognizeSpeech, isSpeechRecognitionSupported } from './stt';

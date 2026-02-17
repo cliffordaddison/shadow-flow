@@ -9,6 +9,7 @@ import { getSentencesByLessonId } from '@/store/sentences';
 import { speakSentence, cancelTTS } from './tts';
 import { useStore } from '@/store/useStore';
 import { unlockNextLessonAfterComplete } from './progression';
+import { addListenSentenceToday } from './metrics';
 
 const LISTEN_COMPLETED_KEY = 'shadowflow-listen-completed';
 
@@ -132,6 +133,7 @@ export function useListenRepeatSession(lessonId: string | null) {
       }
       if (!abortPlayRef.current) {
         markListenCompleted(currentSentence.id);
+        addListenSentenceToday(currentSentence.id);
         setRepeatIndex(0);
         // When autoAdvance is off, stay on current sentence; only advance when it's on
         if (autoAdvanceRef.current) {

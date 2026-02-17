@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { TrainingNavbar } from '@/components/layout/TrainingNavbar';
 import { LessonHeader } from '@/components/layout/LessonHeader';
 import { useSpeakingSession } from '@/engine/speaking';
@@ -6,26 +6,15 @@ import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { getCourse, getLesson } from '@/store/courses';
-import { getSentencesByLessonId, getAllSentences } from '@/store/sentences';
+import { getAllSentences, getSentencesByLessonId } from '@/store/sentences';
 import { getReviewState } from '@/store/reviewStates';
 import type { ReviewGrade } from '@/types';
+import { LessonCompletionDialog } from '@/components/LessonCompletionDialog';
 
 function getGradeLabel(grade: ReviewGrade): string {
   if (grade === 0) return 'Again';
   if (grade === 1) return 'Good';
   return 'Easy';
-}
-
-function useSpeakingMetrics(currentLessonId: string | null) {
-  const sentenceVersion = useStore((s) => s.sentenceVersion);
-  return useMemo(() => {
-    if (!currentLessonId) return '—';
-    const lessonSentences = getSentencesByLessonId(currentLessonId);
-    const total = lessonSentences.length;
-    if (total === 0) return '—';
-    const completed = lessonSentences.filter((s) => getReviewState(s.id, 'speak').repetitions > 0).length;
-    return `${Math.min(completed, total)} / ${total}`;
-  }, [currentLessonId, sentenceVersion]);
 }
 
 type SessionLike = {
@@ -35,7 +24,7 @@ type SessionLike = {
   stopListening: () => void;
   captureSpeech: () => void;
   skipSentence: () => void;
-  compareResult: { passed: boolean } | null;
+  compareResult: { passed: boolean; score: number } | null;
   suggestedGrade: ReviewGrade | null;
   autoSubmitted: boolean;
   userText: string;
@@ -105,16 +94,18 @@ function SpeakingCompareResult({ session }: Readonly<{ session: SessionLike }>) 
     <div className="w-full max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-wrap justify-center gap-2 mb-2">
         <span
-          className={`px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2 ${
-            session.compareResult.passed
+          className={`px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2 ${session.compareResult.passed
               ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
               : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-          }`}
+            }`}
         >
           <span className="material-symbols-outlined text-base">
             {session.compareResult.passed ? 'check_circle' : 'info'}
           </span>
           {session.compareResult.passed ? 'Good!' : 'Close!'}
+        </span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          Score: {session.compareResult.score}%
         </span>
         {session.suggestedGrade != null && (
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -210,7 +201,36 @@ export function Speaking() {
   const course = currentCourseId ? getCourse(currentCourseId) : null;
   const totalSentences = getAllSentences().length;
 
-  const progressValue = useSpeakingMetrics(currentLessonId);
+  const sessionComplete = Boolean(
+    currentLessonId && session.sessionTotal > 0 && !session.current
+  );
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  useEffect(() => {
+    if (sessionComplete) setShowCompletionDialog(true);
+  }, [sessionComplete]);
+
+  const reviewsValue = (() => {
+    if (!currentLessonId) return '—';
+    const lessonSentences = getSentencesByLessonId(currentLessonId);
+    const total = lessonSentences.length;
+    if (total === 0) return '—';
+    const completed = lessonSentences.filter((s) => getReviewState(s.id, 'speak').repetitions > 0).length;
+    return `${Math.min(completed, total)} / ${total}`;
+  })();
+
+  const sessionGoalCurrent =
+    totalSentences === 0 || !currentCourseId || !currentLessonId || session.sessionTotal === 0
+      ? 0
+      : session.uniqueIndex || 0;
+  const sessionGoalTotal =
+    totalSentences === 0 || !currentCourseId || !currentLessonId || session.sessionTotal === 0
+      ? 0
+      : session.sessionTotal;
+
+  const setSessionGoal = useStore((s) => s.setSessionGoal);
+  useEffect(() => {
+    setSessionGoal(sessionGoalCurrent, sessionGoalTotal);
+  }, [setSessionGoal, sessionGoalCurrent, sessionGoalTotal]);
 
   const wordsMasteredValue = snapshot.uniqueWords > 0
     ? `${snapshot.wordsMastered} / ${snapshot.uniqueWords}`
@@ -221,7 +241,7 @@ export function Speaking() {
 
   const SPEAKING_NAVBAR_METRICS = [
     { label: 'Unique words', value: wordsMasteredValue, valueClass: 'text-primary', desc: 'Words mastered / total unique words.' },
-    { label: 'Today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Sentences practiced today.' },
+    { label: 'Words spoken today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Words spoken correctly today.' },
   ];
 
   const SPEAKING_PAGE_METRICS = [
@@ -247,7 +267,7 @@ export function Speaking() {
         courseName={courseName}
         lessonName={lessonName}
         progressLabel="Reviews"
-        progressValue={progressValue}
+        progressValue={reviewsValue}
         metrics={SPEAKING_PAGE_METRICS}
       />
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center max-w-4xl mx-auto w-full px-6 py-8 overflow-y-auto">
@@ -255,6 +275,15 @@ export function Speaking() {
       </div>
 
       {currentLessonId && session.current && session.compareResult && <SpeakingGradeFooter session={session} />}
+
+      {sessionComplete && (
+        <LessonCompletionDialog
+          open={showCompletionDialog}
+          currentLessonId={currentLessonId}
+          currentCourseId={currentCourseId}
+          onClose={() => setShowCompletionDialog(false)}
+        />
+      )}
     </div>
   );
 }

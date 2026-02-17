@@ -175,7 +175,7 @@ export function recomputeWordMasteryForSentence(sentenceId: string): void {
   for (const w of words) recomputeWordMastery(w);
 }
 
-export function updateWordStats(sentenceId: string, _mode: 'listen' | 'speak' | 'write'): void {
+export function updateWordStats(sentenceId: string, mode: 'listen' | 'speak' | 'write'): void {
   const sentence = getSentence(sentenceId);
   if (!sentence) return;
   const words = tokenize(sentence.french);
@@ -192,6 +192,7 @@ export function updateWordStats(sentenceId: string, _mode: 'listen' | 'speak' | 
       totalSeenCount: (existing?.totalSeenCount ?? 0) + 1,
       lastSeenAt: today,
       isMastered: existing?.isMastered ?? false,
+      lastSeenMode: mode,
     };
     wordStatsMap.set(id, entry);
     if (db.getUseIndexedDB()) {
@@ -200,6 +201,13 @@ export function updateWordStats(sentenceId: string, _mode: 'listen' | 'speak' | 
   }
   for (const w of words) recomputeWordMastery(w);
   if (!db.getUseIndexedDB()) save();
+}
+
+/** Return word IDs (tokenized) for a sentence, for mode-specific daily stats. */
+export function getWordIdsForSentence(sentenceId: string): string[] {
+  const sentence = getSentence(sentenceId);
+  if (!sentence) return [];
+  return tokenize(sentence.french);
 }
 
 export function getWordStats(): WordStats[] {

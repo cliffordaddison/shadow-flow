@@ -67,12 +67,19 @@ export interface WordStats {
   totalSeenCount: number;
   lastSeenAt?: string;
   isMastered: boolean;
+  /** Mode in which the word was last seen (for mode-specific today counts). */
+  lastSeenMode?: 'listen' | 'speak' | 'write';
 }
+
+export type DifficultyPath = 'difficult' | 'good' | 'easy';
 
 export interface SentenceMastery {
   sentenceId: string;
   isMastered: boolean;
   masteredAt?: string;
+  /** Progression state: difficulty path and transition count (optional). */
+  currentDifficulty?: DifficultyPath;
+  transitionCount?: number;
 }
 
 // ─── Metrics ───────────────────────────────────────────────────────────────

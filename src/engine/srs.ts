@@ -1,5 +1,11 @@
 /**
- * SM-2 style SRS: updateReviewState(grade), due date, next sentence.
+ * Session-based SRS: grade by attempt count (1st/2nd/3rd+), schedule repeats
+ * within the session (0ms / 5min / 1min). No SM-2, no day-based intervals.
+ * A sentence is mastered when it reaches Easy in the current session.
+ *
+ * getNextSentence still provides the feed of sentences to work through per lesson,
+ * but no longer enforces isLessonUnlocked when an explicit lessonId is given
+ * (so navigation via Next Lesson / Skip works immediately).
  */
 
 import type { ReviewState, ReviewGrade } from '@/types';
@@ -9,20 +15,33 @@ import { getDueReviews } from '@/store/reviewStates';
 import { getLesson } from '@/store/courses';
 import type { ReviewMode } from '@/types';
 
-const INITIAL_EASE = 2.5;
-const MIN_EASE = 1.3;
+// ─── Session grading helpers (attempt-count based) ─────────────────────────
 
-export function calculateDueDate(intervalDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + intervalDays);
-  return d.toISOString().slice(0, 10);
+/**
+ * Derive the session grade from the attempt count within the current session.
+ *   1st attempt → Easy (2)
+ *   2nd attempt → Good (1)
+ *   3rd+ attempt → Again (0)
+ */
+export function gradeByAttempt(attemptCount: number): ReviewGrade {
+  if (attemptCount <= 1) return 2;
+  if (attemptCount === 2) return 1;
+  return 0;
 }
 
-export function isDue(dueDate: string): boolean {
-  const due = new Date(dueDate).setHours(0, 0, 0, 0);
-  const now = new Date().setHours(0, 0, 0, 0);
-  return due <= now;
+/**
+ * Return the in-session repeat delay in milliseconds for a grade.
+ *   Easy  → 0  (no repeat in session – sentence is mastered)
+ *   Good  → 5 minutes
+ *   Again → 1 minute
+ */
+export function sessionDelayMs(grade: ReviewGrade): number {
+  if (grade === 2) return 0;
+  if (grade === 1) return 5 * 60 * 1000; // 5 min
+  return 1 * 60 * 1000; // 1 min
 }
+
+// ─── ReviewState management (simplified, no SM-2 intervals) ────────────────
 
 function getOrCreateState(sentenceId: string, mode: ReviewMode): ReviewState {
   let state = getReviewState(sentenceId, mode);
@@ -33,7 +52,7 @@ function getOrCreateState(sentenceId: string, mode: ReviewMode): ReviewState {
       mode,
       interval: 0,
       due: today,
-      ease: INITIAL_EASE,
+      ease: 2.5,
       repetitions: 0,
       lapses: 0,
     };
@@ -42,10 +61,13 @@ function getOrCreateState(sentenceId: string, mode: ReviewMode): ReviewState {
 }
 
 /**
- * SM-2 style: Grade 0 = Again, 1 = Good, 2 = Easy.
- * Again: repetitions=0, lapses+=1, interval=1, ease = max(1.3, ease - 0.2)
- * Good: repetitions+=1, interval (1→3→interval*ease), ease = max(1.3, ease - 0.1)
- * Easy: repetitions+=1, same interval, ease += 0.1
+ * Record a grade and persist the review state.
+ * Session-based: we simply increment repetitions / lapses to keep a
+ * lightweight history that other parts of the UI can read.
+ *
+ * IMPORTANT: After grading, we set interval=1 and due=tomorrow so that
+ * getNextSentence no longer returns this sentence.  Within-session repeats
+ * are handled by the scheduledQueue in speaking.ts / writing.ts.
  */
 export function updateReviewState(
   sentenceId: string,
@@ -54,6 +76,11 @@ export function updateReviewState(
 ): ReviewState {
   const state = getOrCreateState(sentenceId, mode);
   const today = new Date().toISOString().slice(0, 10);
+  // Push due to tomorrow so getNextSentence skips this sentence
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
   const next: ReviewState = {
     ...state,
     lastResult: grade,
@@ -61,24 +88,18 @@ export function updateReviewState(
   };
 
   if (grade === 0) {
-    next.repetitions = 0;
+    // Again – session queue will re-show after 1 min
+    next.repetitions = state.repetitions;
     next.lapses = state.lapses + 1;
-    next.interval = 1;
-    next.ease = Math.max(MIN_EASE, state.ease - 0.2);
-    next.due = calculateDueDate(1);
   } else {
+    // Good or Easy
     next.repetitions = state.repetitions + 1;
-    if (state.repetitions === 0) {
-      next.interval = grade === 2 ? 4 : 1;
-    } else if (state.repetitions === 1) {
-      next.interval = grade === 2 ? 6 : 3;
-    } else {
-      const mult = grade === 2 ? 1.3 : 1;
-      next.interval = Math.round(state.interval * state.ease * mult);
-    }
-    next.ease = grade === 2 ? state.ease + 0.1 : Math.max(MIN_EASE, state.ease - 0.1);
-    next.due = calculateDueDate(next.interval);
   }
+
+  // Mark as "reviewed" so getNextSentence moves on to the next sentence
+  next.interval = 1;
+  next.due = tomorrowStr;
+  next.ease = state.ease;
 
   setReviewState(next);
   return next;
@@ -90,25 +111,36 @@ function isLessonUnlocked(lessonId: string): boolean {
 }
 
 /**
- * Get next sentence for a mode: due first, then new (no state or interval=0).
- * Only returns sentences whose lesson is unlocked.
+ * Get next sentence for a mode.
+ *
+ * When an explicit `lessonId` is provided (Speaking/Writing navigating to a
+ * specific lesson) we skip the unlock gate entirely – the caller already
+ * decided which lesson to load.  If no lessonId is provided we still respect
+ * the unlock flag for global feeds.
  */
 export function getNextSentence(
   mode: ReviewMode,
   lessonId?: string
 ): { sentenceId: string; state: ReviewState } | null {
-  if (lessonId && !isLessonUnlocked(lessonId)) return null;
+  // Only enforce unlock for the global (no lessonId) feed
+  if (lessonId && !isLessonUnlocked(lessonId)) {
+    // Still allow: explicit navigation overrides lock
+  }
 
   const due = getDueReviews(mode, 50);
   for (const state of due) {
     const sentence = getSentence(state.sentenceId);
     if (!sentence) continue;
-    if (!isLessonUnlocked(sentence.lessonId)) continue;
+    // For global feed, still respect unlock
+    if (!lessonId && !isLessonUnlocked(sentence.lessonId)) continue;
     if (lessonId && sentence.lessonId !== lessonId) continue;
     return { sentenceId: state.sentenceId, state };
   }
+
   const allForLesson = lessonId ? getSentencesByLessonId(lessonId) : getAllSentences();
-  const sentences = allForLesson.filter((s) => isLessonUnlocked(s.lessonId));
+  const sentences = lessonId
+    ? allForLesson // explicit lesson – no unlock filter
+    : allForLesson.filter((s) => isLessonUnlocked(s.lessonId));
   const today = new Date().toISOString().slice(0, 10);
   for (const s of sentences) {
     const state = getReviewState(s.id, mode);

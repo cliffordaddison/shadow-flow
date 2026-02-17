@@ -1,13 +1,15 @@
-import { useRef, useEffect, useMemo, type ReactNode } from 'react';
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { TrainingNavbar } from '@/components/layout/TrainingNavbar';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { LessonHeader } from '@/components/layout/LessonHeader';
 import { useWritingSession } from '@/engine/writing';
 import { getProgressSnapshot } from '@/engine/metrics';
+import { getAllSentences, getSentencesByLessonId } from '@/store/sentences';
 import { getReviewState } from '@/store/reviewStates';
-import { getSentencesByLessonId, getAllSentences } from '@/store/sentences';
 import { useStore } from '@/store/useStore';
 import { getCourse, getLesson } from '@/store/courses';
+import { LessonCompletionDialog } from '@/components/LessonCompletionDialog';
+import { AccentKeyboard } from '@/components/AccentKeyboard';
 
 function DiffWordSpan({ item }: Readonly<{ item: { word: string; status: 'correct' | 'missing' | 'wrong' } }>) {
   if (item.status === 'correct') {
@@ -38,23 +40,63 @@ function renderWritingEmptyState(currentLessonId: string | null): ReactNode {
 
 export function Writing() {
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const currentLessonId = useStore((s) => s.currentLessonId);
   useScreenWakeLock();
   const currentCourseId = useStore((s) => s.currentCourseId);
   const session = useWritingSession(currentLessonId ?? undefined);
+
+  const insertCharAtCursor = useCallback(
+    (char: string) => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart;
+      const end = el.selectionEnd ?? start;
+      const value = session.userInput;
+      const next = value.slice(0, start) + char + value.slice(end);
+      session.setUserInput(next);
+      requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + char.length;
+        el.setSelectionRange(pos, pos);
+      });
+    },
+    [session.userInput, session.setUserInput]
+  );
   const snapshot = getProgressSnapshot('write');
   const course = currentCourseId ? getCourse(currentCourseId) : null;
   const totalSentences = getAllSentences().length;
 
-  const sentenceVersion = useStore((s) => s.sentenceVersion);
-  const progressValue = useMemo(() => {
+  const sessionComplete = Boolean(
+    currentLessonId && session.sessionTotal > 0 && !session.current
+  );
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  useEffect(() => {
+    if (sessionComplete) setShowCompletionDialog(true);
+  }, [sessionComplete]);
+
+  const writtenValue = (() => {
     if (!currentLessonId) return '—';
     const lessonSentences = getSentencesByLessonId(currentLessonId);
     const total = lessonSentences.length;
     if (total === 0) return '—';
     const completed = lessonSentences.filter((s) => getReviewState(s.id, 'write').repetitions > 0).length;
     return `${Math.min(completed, total)} / ${total}`;
-  }, [currentLessonId, sentenceVersion]);
+  })();
+
+  const sessionGoalCurrent =
+    totalSentences === 0 || !currentCourseId || !currentLessonId || session.sessionTotal === 0
+      ? 0
+      : session.uniqueIndex || 0;
+  const sessionGoalTotal =
+    totalSentences === 0 || !currentCourseId || !currentLessonId || session.sessionTotal === 0
+      ? 0
+      : session.sessionTotal;
+
+  const setSessionGoal = useStore((s) => s.setSessionGoal);
+  useEffect(() => {
+    setSessionGoal(sessionGoalCurrent, sessionGoalTotal);
+  }, [setSessionGoal, sessionGoalCurrent, sessionGoalTotal]);
 
   const wordsMasteredValue = snapshot.uniqueWords > 0
     ? `${snapshot.wordsMastered} / ${snapshot.uniqueWords}`
@@ -65,7 +107,7 @@ export function Writing() {
 
   const WRITING_NAVBAR_METRICS = [
     { label: 'Unique words', value: wordsMasteredValue, valueClass: 'text-primary', desc: 'Words mastered / total unique words.' },
-    { label: 'Today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Sentences written today.' },
+    { label: 'Words written today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Words written correctly today.' },
   ];
 
   const WRITING_PAGE_METRICS = [
@@ -97,7 +139,7 @@ export function Writing() {
         courseName={courseName}
         lessonName={lessonName}
         progressLabel="Written"
-        progressValue={progressValue}
+        progressValue={writtenValue}
         metrics={WRITING_PAGE_METRICS}
       />
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-3 sm:p-6 md:p-12 max-w-5xl mx-auto w-full">
@@ -117,12 +159,14 @@ export function Writing() {
                   Type this in French
                 </label>
                 <textarea
+                  ref={textareaRef}
                   id="writing-french-input"
                   value={session.userInput}
                   onChange={(e) => session.setUserInput(e.target.value)}
                   className="w-full min-h-[100px] sm:min-h-[140px] p-3 sm:p-5 text-[clamp(0.9375rem,2.5vw+0.5rem,1.25rem)] bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none leading-relaxed text-slate-900 dark:text-slate-100"
                   placeholder="Start typing here..."
                 />
+                <AccentKeyboard onInsertChar={insertCharAtCursor} />
                 <div className="flex justify-between items-center pt-2 gap-3">
                   <button
                     type="button"
@@ -208,7 +252,7 @@ export function Writing() {
                       <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-red-600 truncate w-full text-center">
                         Again
                       </span>
-                      <span className="text-[9px] sm:text-[10px] text-slate-400">&lt; 1m</span>
+                      <span className="text-[9px] sm:text-[10px] text-slate-400">1m</span>
                     </button>
                     <button
                       type="button"
@@ -216,7 +260,7 @@ export function Writing() {
                       className="flex flex-col items-center gap-0.5 sm:gap-1 p-2 sm:p-3 rounded-lg border-primary bg-primary/5 dark:bg-primary/20 transition-all group ring-2 ring-primary min-w-0"
                     >
                       <span className="text-xs sm:text-sm font-bold text-primary truncate w-full text-center">Good</span>
-                      <span className="text-[9px] sm:text-[10px] text-primary/70">10m</span>
+                      <span className="text-[9px] sm:text-[10px] text-primary/70">5m</span>
                     </button>
                     <button
                       type="button"
@@ -226,7 +270,7 @@ export function Writing() {
                       <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-green-600 truncate w-full text-center">
                         Easy
                       </span>
-                      <span className="text-[9px] sm:text-[10px] text-slate-400">4d</span>
+                      <span className="text-[9px] sm:text-[10px] text-slate-400">✓</span>
                     </button>
                   </div>
                 </div>
@@ -235,6 +279,15 @@ export function Writing() {
           </div>
         ) : renderWritingEmptyState(currentLessonId)}
       </div>
+
+      {sessionComplete && (
+        <LessonCompletionDialog
+          open={showCompletionDialog}
+          currentLessonId={currentLessonId}
+          currentCourseId={currentCourseId}
+          onClose={() => setShowCompletionDialog(false)}
+        />
+      )}
     </div>
   );
 }

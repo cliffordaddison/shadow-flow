@@ -34,9 +34,12 @@ interface UIState {
   listenRepeatState: Record<string, { currentIndex: number; repeatIndex: number }>;
   /** Listen & Repeat: auto-advance to next sentence after repeats (default on). */
   listenRepeatAutoAdvance: boolean;
+  /** Session goal for sidebar (Speaking/Writing): current sentence / total in lesson. */
+  sessionGoal: { current: number; total: number };
 }
 
 interface Store extends AppStateType, UIState {
+  setSessionGoal: (current: number, total: number) => void;
   settings: AppSettings;
   setLearningView: (v: LearningView) => void;
   setCurrentSentenceId: (id: string | null) => void;
@@ -92,6 +95,9 @@ export const useStore = create<Store>((set) => ({
   currentLessonId: null,
   listenRepeatState: {},
   listenRepeatAutoAdvance: true,
+  sessionGoal: { current: 0, total: 0 },
+
+  setSessionGoal: (current: number, total: number) => set({ sessionGoal: { current, total } }),
 
   setLearningView: (v: LearningView) => set({ learningView: v }),
   setCurrentSentenceId: (id: string | null) => set({ currentSentenceId: id }),

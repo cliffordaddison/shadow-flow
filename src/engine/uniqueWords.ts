@@ -20,12 +20,11 @@ const FRENCH_STOPWORDS = new Set(
 );
 
 export function tokenizeFrench(text: string): string[] {
-  const normalized = text
+  return text
     .toLowerCase()
-    .normalize('NFD')
-    .replaceAll(/\p{M}/gu, '')
-    .replaceAll(/[^\p{L}\p{N}\s]/gu, ' ');
-  return normalized.split(/\s+/).filter(Boolean);
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 export function filterStopwords(words: string[], excludeStopwords: boolean = true): string[] {

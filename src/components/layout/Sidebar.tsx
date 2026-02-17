@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { getProgressSnapshot } from '@/engine/metrics';
+import { useStore } from '@/store/useStore';
 
 export type SidebarVariant = 'upload' | 'listen' | 'settings' | 'speaking' | 'writing';
 
@@ -20,16 +20,6 @@ const NAV_ITEMS: { to: string; label: string; icon: string; filledIcon?: boolean
   { to: '/upload', label: 'Upload File', icon: 'cloud_upload', filledIcon: true },
 ];
 
-const SESSION_GOAL_TOTAL = 50;
-
-const VARIANT_TO_PROGRESS_MODE: Record<SidebarVariant, 'listen' | 'speak' | 'write'> = {
-  listen: 'listen',
-  speaking: 'speak',
-  writing: 'write',
-  upload: 'listen',
-  settings: 'listen',
-};
-
 export function Sidebar({
   variant,
   title,
@@ -37,10 +27,10 @@ export function Sidebar({
   showSessionGoal = false,
 }: Readonly<SidebarProps>) {
   const { pathname } = useLocation();
-  const snapshot = getProgressSnapshot(VARIANT_TO_PROGRESS_MODE[variant]);
-  const sessionDone = snapshot.wordsSeenToday;
-  const sessionTotal = SESSION_GOAL_TOTAL;
-  const sessionPct = sessionTotal > 0 ? Math.min(100, (sessionDone / sessionTotal) * 100) : 0;
+  const sessionGoal = useStore((s) => s.sessionGoal);
+  const sessionCurrent = sessionGoal.current;
+  const sessionTotal = sessionGoal.total;
+  const sessionPct = sessionTotal > 0 ? Math.min(100, (sessionCurrent / sessionTotal) * 100) : 0;
 
   return (
     <aside className="w-14 sm:w-16 md:w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col z-10 relative transition-[width] duration-200">
@@ -120,9 +110,9 @@ export function Sidebar({
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Session Goal
+                SESSION GOAL
               </span>
-              <span className="text-xs font-bold text-primary">{sessionDone}/{sessionTotal}</span>
+              <span className="text-xs font-bold text-primary">{sessionCurrent}/{sessionTotal}</span>
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
               <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${sessionPct}%` }} />

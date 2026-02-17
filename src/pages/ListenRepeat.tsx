@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { TrainingNavbar } from '@/components/layout/TrainingNavbar';
 import { LessonHeader } from '@/components/layout/LessonHeader';
 import { useListenRepeatSession } from '@/engine/listenRepeat';
@@ -6,7 +6,7 @@ import { cancelTTS } from '@/engine/tts';
 import { getProgressSnapshot } from '@/engine/metrics';
 import { useStore } from '@/store/useStore';
 import { PlaybackSpeedControl } from '@/components/PlaybackSpeedControl';
-import { getCourse } from '@/store/courses';
+import { getCourse, getLesson, getLessonsForCourse, updateLesson } from '@/store/courses';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 
 export function ListenRepeat() {
@@ -23,15 +23,49 @@ export function ListenRepeat() {
 
   const LISTEN_NAVBAR_METRICS = [
     { label: 'Unique words', value: String(snapshot.uniqueWords), valueClass: 'text-primary', desc: 'Distinct French words across all your lessons.' },
-    { label: 'Today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Seen today in any mode.' },
+    { label: 'Seen today', value: `+${snapshot.wordsSeenToday}`, valueClass: 'text-emerald-600 dark:text-emerald-400', desc: 'Sentences seen today in Listen & Repeat.' },
   ];
 
   const LISTEN_ALL_METRICS = LISTEN_NAVBAR_METRICS;
 
   const currentCourseId = useStore((s) => s.currentCourseId);
+  const setCurrentLessonId = useStore((s) => s.setCurrentLessonId);
   const course = currentCourseId ? getCourse(currentCourseId) : null;
   const courseName = course?.name ?? '—';
   const lessonName = session.lesson?.name ?? '—';
+
+  const { nextLessonId, hasNextLesson, prevLessonId, hasPrevLesson } = useMemo(() => {
+    if (!currentLessonId) return { nextLessonId: null as string | null, hasNextLesson: false, prevLessonId: null as string | null, hasPrevLesson: false };
+    const lesson = getLesson(currentLessonId);
+    if (!lesson) return { nextLessonId: null, hasNextLesson: false, prevLessonId: null, hasPrevLesson: false };
+    const courseLessons = getLessonsForCourse(lesson.courseId);
+    const next = courseLessons.find((l) => l.order === lesson.order + 1);
+    const prev = courseLessons.find((l) => l.order === lesson.order - 1);
+    return {
+      nextLessonId: next?.id ?? null,
+      hasNextLesson: !!next,
+      prevLessonId: prev?.id ?? null,
+      hasPrevLesson: !!prev,
+    };
+  }, [currentLessonId]);
+
+  const handleSkipToNextLesson = () => {
+    if (!nextLessonId) return;
+    // Unlock the target lesson before switching so Speaking/Writing can load it
+    const targetLesson = getLesson(nextLessonId);
+    if (targetLesson && !targetLesson.isUnlocked) {
+      updateLesson({ ...targetLesson, isUnlocked: true });
+    }
+    setCurrentLessonId(nextLessonId);
+    useStore.getState().incrementSentenceVersion();
+  };
+
+  const handleGoToPrevLesson = () => {
+    if (!prevLessonId) return;
+    setCurrentLessonId(prevLessonId);
+    useStore.getState().incrementSentenceVersion();
+  };
+
   const progressValue = session.totalSentences > 0
     ? `${session.currentIndex} / ${session.totalSentences}`
     : '—';
@@ -126,11 +160,10 @@ export function ListenRepeat() {
                     <button
                       type="button"
                       onClick={() => (session.isPlaying ? session.stopPlayback() : session.playCurrent())}
-                      className={`absolute size-20 md:size-24 rounded-full flex items-center justify-center shadow-lg transition-all group hover:scale-105 active:scale-95 ${
-                        session.isPlaying
-                          ? 'bg-red-500 text-white shadow-red-500/30 hover:bg-red-600'
-                          : 'bg-primary text-white shadow-primary/30 hover:bg-blue-600'
-                      }`}
+                      className={`absolute size-20 md:size-24 rounded-full flex items-center justify-center shadow-lg transition-all group hover:scale-105 active:scale-95 ${session.isPlaying
+                        ? 'bg-red-500 text-white shadow-red-500/30 hover:bg-red-600'
+                        : 'bg-primary text-white shadow-primary/30 hover:bg-blue-600'
+                        }`}
                       aria-label={session.isPlaying ? 'Stop' : 'Play'}
                     >
                       <span
@@ -151,15 +184,37 @@ export function ListenRepeat() {
                     <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_next</span>
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => session.restartSession()}
-                  className="absolute bottom-4 right-4 size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm"
-                  aria-label="Restart from beginning"
-                  title="Restart from beginning"
-                >
-                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>restart_alt</span>
-                </button>
+                <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGoToPrevLesson}
+                    disabled={!hasPrevLesson}
+                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                    aria-label="Go to previous lesson"
+                    title="Go to previous lesson"
+                  >
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_previous</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipToNextLesson}
+                    disabled={!hasNextLesson}
+                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                    aria-label="Skip to next lesson"
+                    title="Skip to next lesson"
+                  >
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>skip_next</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => session.restartSession()}
+                    className="size-11 rounded-full border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shrink-0 bg-white dark:bg-slate-900 shadow-sm"
+                    aria-label="Restart from beginning"
+                    title="Restart from beginning"
+                  >
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>restart_alt</span>
+                  </button>
+                </div>
                 <span className="text-[10px] uppercase font-bold text-slate-300 dark:text-slate-600 tracking-widest mt-2">
                   Space to play
                 </span>

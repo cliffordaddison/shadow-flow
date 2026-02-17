@@ -1,5 +1,8 @@
 /**
  * Lesson completion and unlock next.
+ *
+ * Session-based: a sentence is "completed" when it has been mastered in the
+ * session (i.e. marked via sentenceMastery), not by 21-day intervals.
  */
 
 import { getLesson, unlockNextLesson } from '@/store/courses';
@@ -36,7 +39,7 @@ export function checkLessonCompletion(lessonId: string): {
 
   for (const s of sentences) {
     if (!listenCompleted.has(s.id)) listenOk = false;
-    // Mastery: ≥3 reps and interval ≥21 days for speak or write (per sentenceMastery rules)
+    // Session-based mastery: sentence is mastered when it reached Easy in session
     const mastered = getSentenceMasteryStatus(s.id);
     if (!mastered) speakOk = false;
     if (!mastered) writeOk = false;

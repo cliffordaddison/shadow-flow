@@ -1,15 +1,16 @@
 /**
- * Sentence mastery store.
+ * Sentence mastery store — session-based mastery.
  *
- * Mastery algorithm: A sentence is considered mastered when either Speaking OR Writing
- * has repetitions >= 3 and interval >= 21 days (SRS). When you grade a sentence (Again/Good/Easy)
- * or use Skip (I know it), review state is updated and updateSentenceMastery() is called.
- * Lesson completion uses this: all sentences in a lesson must be mastered (plus Listen
- * completed) before you can switch to another lesson.
+ * A sentence is considered mastered when it reaches "Easy" grade in the
+ * current session (i.e. the user gets it right on the first attempt, or
+ * reaches Easy after retries within the session). Each mastery event
+ * increments a persistent mastery count (+1).
+ *
+ * There is NO 21-day interval requirement — mastery is immediate within
+ * the session.
  */
 
-import type { SentenceMastery as SentenceMasteryType } from '@/types';
-import { getReviewStatesForSentence } from './reviewStates';
+import type { SentenceMastery as SentenceMasteryType, DifficultyPath } from '@/types';
 
 const STORAGE_KEY = 'shadowflow-sentence-mastery';
 
@@ -24,37 +25,110 @@ function load(): void {
       masteryMap.clear();
       parsed.forEach((m) => masteryMap.set(m.sentenceId, m));
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function save(): void {
   try {
     const arr = Array.from(masteryMap.values());
     localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 load();
 
-export function updateSentenceMastery(sentenceId: string): void {
-  const states = getReviewStatesForSentence(sentenceId);
-  const speak = states.find((s) => s.mode === 'speak');
-  const write = states.find((s) => s.mode === 'write');
-  const minReps = 3;
-  const minIntervalDays = 21;
+function deriveDifficulty(attemptCount: number): DifficultyPath {
+  if (attemptCount <= 1) return 'easy';
+  if (attemptCount === 2) return 'good';
+  return 'difficult';
+}
 
-  const speakOk = speak && speak.repetitions >= minReps && speak.interval >= minIntervalDays;
-  const writeOk = write && write.repetitions >= minReps && write.interval >= minIntervalDays;
-  const isMastered = !!(speakOk || writeOk);
-
+/**
+ * Mark a sentence as mastered (session-based).
+ *
+ * Called when the user grades a sentence Easy in the current session.
+ * Each call increments the persistent mastery count by 1.
+ *
+ * @param sentenceId  The sentence that was mastered
+ * @param grade       The ReviewGrade (0=Again, 1=Good, 2=Easy)
+ * @param attemptCount  The number of attempts in this session for this sentence
+ */
+export function updateSentenceMastery(
+  sentenceId: string,
+  grade?: number,
+  attemptCount?: number
+): void {
   const existing = masteryMap.get(sentenceId);
-  if (existing?.isMastered === isMastered) return;
-
   const today = new Date().toISOString().slice(0, 10);
+
+  // If a grade is provided and it's Easy (2), mark as mastered immediately
+  // If no grade is provided, fall back to the old simple check (backward compat)
+  const isEasy = grade === 2;
+
+  const currentDifficulty = attemptCount != null
+    ? deriveDifficulty(attemptCount)
+    : existing?.currentDifficulty ?? 'difficult';
+
+  const currentCount = existing?.transitionCount ?? 0;
+
+  if (isEasy || grade === undefined) {
+    // Mark as mastered (or stay mastered) and increment count
+    const newCount = (grade === 2 || grade === undefined) ? currentCount + 1 : currentCount;
+    const isMastered = isEasy || (grade === undefined ? (existing?.isMastered ?? false) : false);
+
+    if (
+      existing?.isMastered === isMastered &&
+      existing?.currentDifficulty === currentDifficulty &&
+      existing?.transitionCount === newCount
+    ) {
+      return; // no change
+    }
+
+    masteryMap.set(sentenceId, {
+      sentenceId,
+      isMastered,
+      masteredAt: isMastered ? today : existing?.masteredAt,
+      currentDifficulty,
+      transitionCount: newCount,
+    });
+    save();
+  } else {
+    // Grade is Again or Good but not Easy — sentence is not yet mastered this session
+    // Just update difficulty/count for tracking
+    if (
+      existing?.currentDifficulty === currentDifficulty &&
+      !existing?.isMastered
+    ) {
+      return; // no meaningful change
+    }
+
+    masteryMap.set(sentenceId, {
+      sentenceId,
+      isMastered: false,
+      masteredAt: existing?.masteredAt,
+      currentDifficulty,
+      transitionCount: currentCount,
+    });
+    save();
+  }
+}
+
+/**
+ * Directly mark a sentence as mastered with a specific attempt count.
+ * Used by speaking/writing session when a sentence is graded Easy.
+ */
+export function markSentenceMasteredInSession(sentenceId: string, attemptCount: number): void {
+  const existing = masteryMap.get(sentenceId);
+  const today = new Date().toISOString().slice(0, 10);
+  const currentCount = (existing?.transitionCount ?? 0) + 1;
+  const difficulty = deriveDifficulty(attemptCount);
+
   masteryMap.set(sentenceId, {
     sentenceId,
-    isMastered,
-    masteredAt: isMastered ? today : undefined,
+    isMastered: true,
+    masteredAt: today,
+    currentDifficulty: difficulty,
+    transitionCount: currentCount,
   });
   save();
 }
