@@ -1,6 +1,6 @@
 /**
  * Speaking session: STT, comparison, grade, session-based SRS.
- * Time-based session queue: Again → +1 min, Good → +5 min; Easy (1 try) = mastered for session.
+ * Time-based session queue: Again → +1 min retry; Good/Easy mark mastered (no re-queue).
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -18,7 +18,6 @@ import { unlockNextLessonAfterComplete } from './progression';
 import { speakSentence } from './tts';
 
 const AGAIN_DELAY_MS = 60000;   // 1 min
-const GOOD_DELAY_MS = 300000;   // 5 min
 
 type ScheduledCard = { sentenceId: string; scheduledTime: number; attemptCount: number };
 
@@ -148,24 +147,22 @@ export function useSpeakingSession(lessonId?: string) {
       const attempts = (attemptCounts.current[sentenceId] ?? 0) + 1;
       attemptCounts.current[sentenceId] = attempts;
 
+      // Always remove any existing entries in queue for this sentenceId
+      scheduledQueue.current = scheduledQueue.current.filter((card) => card.sentenceId !== sentenceId);
+
       if (grade === 2 && attempts === 1) {
         // Easy, 1 try: mastered immediately, no repeat in session
         markSentenceMasteredInSession(sentenceId, attempts);
       } else if (grade === 1) {
-        scheduledQueue.current.push({
-          sentenceId,
-          scheduledTime: Date.now() + GOOD_DELAY_MS,
-          attemptCount: attempts,
-        });
-        setAgainQueueLength(scheduledQueue.current.length);
-        updateSentenceMastery(sentenceId, grade, attempts);
+        // Good: mastered for session, don't re-enqueue
+        markSentenceMasteredInSession(sentenceId, attempts);
       } else if (grade === 0) {
+        // Again: retry after 1 minute
         scheduledQueue.current.push({
           sentenceId,
           scheduledTime: Date.now() + AGAIN_DELAY_MS,
           attemptCount: attempts,
         });
-        setAgainQueueLength(scheduledQueue.current.length);
         updateSentenceMastery(sentenceId, grade, attempts);
       }
 
@@ -173,6 +170,8 @@ export function useSpeakingSession(lessonId?: string) {
       if (grade === 2 && attempts > 1) {
         markSentenceMasteredInSession(sentenceId, attempts);
       }
+
+      setAgainQueueLength(scheduledQueue.current.length);
 
       updateReviewState(sentenceId, 'speak', grade);
       useStore.getState().incrementSentenceVersion();
