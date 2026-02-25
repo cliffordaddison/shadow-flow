@@ -122,7 +122,7 @@ function SpeakingCompareResult({ session }: Readonly<{ session: SessionLike }>) 
         </div>
         <div className="flex-1 w-full min-w-0">
           <p className="text-xs text-primary font-bold uppercase mb-2">Expected:</p>
-          <p className="text-[clamp(0.75rem,2vw+0.4rem,1.125rem)] sm:text-[clamp(0.875rem,2.5vw+0.5rem,1.25rem)] text-slate-900 dark:text-white font-medium break-words hyphens-none">{session.current!.french}</p>
+          <p className="text-[clamp(0.7rem,1.8vw+0.35rem,0.95rem)] sm:text-[clamp(0.8rem,2vw+0.4rem,1.1rem)] text-slate-900 dark:text-white font-medium break-words hyphens-none">{session.current!.french}</p>
         </div>
       </div>
     </div>

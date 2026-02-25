@@ -227,7 +227,7 @@ export function Writing() {
                     Correction
                   </h4>
                   <div className="p-3 sm:p-5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 overflow-x-auto">
-                    <p className="text-[clamp(0.75rem,2vw+0.4rem,1rem)] sm:text-[clamp(0.875rem,2.5vw+0.5rem,1.125rem)] font-medium leading-relaxed text-slate-900 dark:text-slate-100 break-words hyphens-none">
+                    <p className="text-[clamp(0.7rem,1.8vw+0.35rem,0.9rem)] sm:text-[clamp(0.8rem,2vw+0.4rem,1rem)] font-medium leading-relaxed text-slate-900 dark:text-slate-100 break-words hyphens-none">
                       {session.diff?.map((d, i) => (
                         <DiffWordSpan key={`${i}-${d.word}-${d.status}`} item={d} />
                       ))}

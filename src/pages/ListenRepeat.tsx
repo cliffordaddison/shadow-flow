@@ -161,7 +161,7 @@ export function ListenRepeat() {
             {session.currentSentence ? (
               <>
                 <div className="text-center space-y-3 sm:space-y-6 mb-6 sm:mb-12 max-w-2xl w-full px-2 mt-14">
-                  <h3 className="text-[clamp(0.875rem,2.5vw+0.5rem,2rem)] sm:text-[clamp(1.125rem,4vw+0.75rem,3rem)] font-bold text-slate-900 dark:text-white leading-tight tracking-tight break-words hyphens-none">
+                  <h3 className="text-[clamp(0.75rem,2vw+0.4rem,1.25rem)] sm:text-[clamp(0.875rem,3vw+0.5rem,1.5rem)] font-bold text-slate-900 dark:text-white leading-tight tracking-tight break-words hyphens-none">
                     {session.currentSentence.french}
                   </h3>
                   <p className="text-[clamp(0.75rem,2vw+0.4rem,1.25rem)] sm:text-[clamp(0.875rem,2.5vw+0.5rem,1.5rem)] text-slate-400 dark:text-slate-500 font-normal break-words hyphens-none">

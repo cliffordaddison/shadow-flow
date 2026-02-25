@@ -253,7 +253,7 @@ export function Phase2Speaking() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={labelStyle}>Reference</p>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 500, color: 'var(--sf-text-muted)', fontStyle: 'italic' }}>&quot;{sentence.french}&quot;</h3>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 500, color: 'var(--sf-text-muted)', fontStyle: 'italic' }}>&quot;{sentence.french}&quot;</h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--sf-text-dim)', textTransform: 'uppercase' }}>Auto-Play</span>
