@@ -123,6 +123,7 @@ export function useListenRepeatSession(lessonId: string | null) {
         await speakSentence(currentSentence.french, {
           rate: settings.learning.ttsSpeed,
           voice: settings.learning.ttsVoice,
+          voiceGender: settings.learning.ttsVoiceGender,
         });
         if (abortPlayRef.current) break;
         const durationMs = 500;

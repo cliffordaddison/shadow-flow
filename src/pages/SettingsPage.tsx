@@ -25,6 +25,23 @@ export function SettingsPage() {
     setLocalLearning(settings.learning);
   }, [settings.learning]);
 
+  // Auto-save voice gender preference immediately for better UX
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Auto-save if voice gender differs from settings
+      const voiceGenderChanged = localLearning.ttsVoiceGender !== settings.learning.ttsVoiceGender;
+      if (voiceGenderChanged) {
+        const updated = { ...localLearning };
+        setSettings((prev) => ({ ...prev, learning: updated }));
+        saveSettings({ ...settings, learning: updated });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    }, 150); // Debounce by 150ms
+    
+    return () => clearTimeout(timeoutId);
+  }, [localLearning.ttsVoiceGender]);
+
   const SETTINGS_NAVBAR_METRICS = [
     { label: 'Courses', value: String(files.length), valueClass: 'text-primary', desc: 'Imported courses.' },
   ];
@@ -143,6 +160,35 @@ export function SettingsPage() {
                   className="w-16 text-center border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm p-2 text-slate-900 dark:text-slate-100"
                 />
                 <span className="text-xs text-slate-500">times per sentence (Listen & Repeat)</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 pt-2">Voice Gender</label>
+              <div className="md:col-span-2 flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => setLocalLearning((l) => ({ ...l, ttsVoiceGender: 'female' }))}
+                    className={`px-4 py-2 rounded font-medium text-sm transition-all ${
+                      localLearning.ttsVoiceGender === 'female'
+                        ? 'bg-primary text-white shadow-md'
+                        : 'bg-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    Female
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocalLearning((l) => ({ ...l, ttsVoiceGender: 'male' }))}
+                    className={`px-4 py-2 rounded font-medium text-sm transition-all ${
+                      localLearning.ttsVoiceGender === 'male'
+                        ? 'bg-primary text-white shadow-md'
+                        : 'bg-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    Male
+                  </button>
+                </div>
               </div>
             </div>
           </div>

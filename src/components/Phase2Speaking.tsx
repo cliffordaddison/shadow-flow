@@ -24,10 +24,11 @@ const labelStyle: React.CSSProperties = { margin: '0 0 8px', fontSize: 12, color
 
 export function Phase2Speaking() {
   const { setLearningView, settings } = useStore();
-  const learning = settings.learning ?? {} as { similarityThreshold?: number; maxSpeakingAttempts?: number; ttsSpeed?: number; exposureRepeatCount?: number; dailyShadowingRepsGoal?: number };
+  const learning = settings.learning ?? {} as { similarityThreshold?: number; maxSpeakingAttempts?: number; ttsSpeed?: number; exposureRepeatCount?: number; dailyShadowingRepsGoal?: number; ttsVoiceGender?: 'female' | 'male'; accentInsensitive?: boolean };
   const threshold = learning.similarityThreshold ?? 85;
   const maxAttempts = Math.min(10, Math.max(1, learning.maxSpeakingAttempts ?? 5));
   const ttsSpeed = learning.ttsSpeed ?? 1;
+  const ttsVoiceGender = learning.ttsVoiceGender ?? 'female';
   const dailyGoal = learning.dailyShadowingRepsGoal ?? 1000;
 
   const [queue, setQueue] = useState<ReturnType<typeof getDueSentences>>([]);
@@ -94,14 +95,14 @@ export function Phase2Speaking() {
     const times = echoMode ? 3 : (autoPlayTimes === 5 ? 5 : 1);
     try {
       for (let i = 0; i < times; i++) {
-        await speakFrench(sentence.french, { rate });
+        await speakFrench(sentence.french, { rate, voiceGender: ttsVoiceGender });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'TTS failed');
     } finally {
       setStatus('idle');
     }
-  }, [sentence, ttsSpeed, autoPlayTimes, echoMode, slowPlayback]);
+  }, [sentence, ttsSpeed, ttsVoiceGender, autoPlayTimes, echoMode, slowPlayback]);
 
   const handleListenRef = { current: null as (() => void) | null };
   const handleListen = useCallback(async () => {

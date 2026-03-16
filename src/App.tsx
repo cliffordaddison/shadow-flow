@@ -5,6 +5,7 @@ import { ListenRepeat } from '@/pages/ListenRepeat';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { Speaking } from '@/pages/Speaking';
 import { Writing } from '@/pages/Writing';
+import { OralDrill } from '@/pages/OralDrill';
 export default function App() {
   return (
     <BrowserRouter>
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="speaking" element={<Speaking />} />
           <Route path="writing" element={<Writing />} />
+          <Route path="oral-drill" element={<OralDrill />} />
           <Route path="*" element={<Navigate to="/listen" replace />} />
         </Route>
       </Routes>

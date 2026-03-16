@@ -17,6 +17,7 @@ const ROUTE_SIDEBAR: Record<string, { variant: SidebarVariant; title: string; su
   '/settings': { variant: 'settings', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle() },
   '/speaking': { variant: 'speaking', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle(), showSessionGoal: true },
   '/writing': { variant: 'writing', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle(), showSessionGoal: true },
+  '/oral-drill': { variant: 'oral-drill', ...SIDEBAR_HEADER, subtitle: getCEFRSubtitle() },
 };
 
 function getSidebarConfig(pathname: string) {

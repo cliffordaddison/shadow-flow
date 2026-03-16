@@ -184,11 +184,12 @@ export function useSpeakingSession(lessonId?: string) {
         speakSentence(current.sentence.french, {
           rate: settings.learning.ttsSpeed,
           voice: settings.learning.ttsVoice,
+          voiceGender: settings.learning.ttsVoiceGender,
         }).catch(() => { });
       }
       loadNext();
     },
-    [current, loadNext, settings.learning.ttsSpeed, settings.learning.ttsVoice]
+    [current, loadNext, settings.learning.ttsSpeed, settings.learning.ttsVoice, settings.learning.ttsVoiceGender]
   );
 
   useEffect(() => {

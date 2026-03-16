@@ -120,6 +120,7 @@ export interface CompareResult {
 export interface LearningSettings {
   ttsSpeed: number;
   ttsVoice?: string;
+  ttsVoiceGender?: 'female' | 'male';
   similarityThreshold: number;
   exposureRepeatCount: number;
   maxSpeakingAttempts: number;
@@ -134,6 +135,7 @@ export interface LearningSettings {
 
 export const defaultLearningSettings: LearningSettings = {
   ttsSpeed: 1,
+  ttsVoiceGender: 'female',
   similarityThreshold: 85,
   exposureRepeatCount: 5,
   maxSpeakingAttempts: 5,

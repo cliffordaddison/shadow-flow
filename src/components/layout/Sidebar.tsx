@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 
-export type SidebarVariant = 'upload' | 'listen' | 'settings' | 'speaking' | 'writing';
+export type SidebarVariant = 'upload' | 'listen' | 'settings' | 'speaking' | 'writing' | 'oral-drill';
 
 interface SidebarProps {
   readonly variant: SidebarVariant;
@@ -17,6 +17,7 @@ const NAV_ITEMS: { to: string; label: string; icon: string; filledIcon?: boolean
   { to: '/listen', label: 'Listen & Repeat', icon: 'headphones', filledIcon: true },
   { to: '/speaking', label: 'Speaking', icon: 'record_voice_over' },
   { to: '/writing', label: 'Writing', icon: 'edit_note' },
+  { to: '/oral-drill', label: 'Oral Drill', icon: 'campaign' },
   { to: '/upload', label: 'Upload File', icon: 'cloud_upload', filledIcon: true },
 ];
 
